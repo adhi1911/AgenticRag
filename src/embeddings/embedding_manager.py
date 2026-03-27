@@ -1,6 +1,6 @@
 import logging
 import numpy as np
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional, Tuple, Any
 from pathlib import Path
 from datetime import datetime
 import json
@@ -185,6 +185,46 @@ class EmbeddingManager:
 
         except Exception as e:
             logger.error(f"Search failed: {str(e)}")
+            raise
+
+    def search_by_embedding(self, query_embedding: np.ndarray, top_k: int = 5) -> List[Dict[str, Any]]:
+        """
+        Search by pre-computed embedding vector
+        Args:
+            query_embedding: numpy array of embedding
+            top_k: number of results to return
+        Returns:
+            List of similar documents with scores
+        """
+        try:
+            collection = self.chroma_client.get_collection(settings.CHROMA_COLLECTION_NAME)
+            
+            results = collection.query(
+                query_embeddings=[query_embedding.tolist()],
+                n_results=top_k,
+                include=['documents', 'metadatas', 'distances']
+            )
+            
+            formatted_results = []
+            if results['documents'] and len(results['documents'][0]) > 0:
+                for i, (doc, metadata, distance) in enumerate(zip(
+                    results['documents'][0],
+                    results['metadatas'][0],
+                    results['distances'][0]
+                )):
+                    formatted_results.append({
+                        'chunk_id': f"dense_{i}",
+                        'content': doc,
+                        'metadata': metadata,
+                        'score': 1 - distance,  # distance -> similarity score
+                        'rank': i + 1
+                    })
+            
+            logger.info(f"Found {len(formatted_results)} similar documents via embedding search")
+            return formatted_results
+            
+        except Exception as e:
+            logger.error(f"Embedding search failed: {str(e)}")
             raise
 
     def get_collection_stats(self, collection_name: str = settings.CHROMA_COLLECTION_NAME) -> Dict:
