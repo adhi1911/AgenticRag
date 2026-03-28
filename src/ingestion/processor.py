@@ -337,7 +337,7 @@ class IngestionProcessor:
             
             # loading document based on file type
             if file_path.suffix.lower() == ".pdf":
-                documents = self.load_pdf(str(file_path))
+                documents = self.parse_pdf(str(file_path))
                 for doc in documents:
                     doc.metadata["source_type"] = "pdf"
                     
@@ -367,6 +367,36 @@ class IngestionProcessor:
         except Exception as e:
             logger.error(f"Failed to process {file_path.name}: {str(e)}\n")
             raise
+
+    def process_file(self, file_path: str) -> Dict[str, any]:
+        """
+        Wrapper method to process a file and return orchestrator-friendly dict format
+        
+        Args:
+            file_path: Path to file to process
+            
+        Returns:
+            Dict with keys: chunks, metadata, success, error
+        """
+        try:
+            chunks = self.process_document(file_path)
+            return {
+                "success": True,
+                "chunks": chunks,
+                "metadata": {
+                    "source": file_path,
+                    "source_type": Path(file_path).suffix.lower(),
+                    "num_chunks": len(chunks)
+                }
+            }
+        except Exception as e:
+            logger.error(f"Error in process_file for {file_path}: {str(e)}")
+            return {
+                "success": False,
+                "chunks": [],
+                "error": str(e),
+                "metadata": {"source": file_path}
+            }
     
     # batch processing for directories
     
