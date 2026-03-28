@@ -2,6 +2,7 @@ import logging
 from typing import List, Dict, Any, Literal
 from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
 
 import groq
 from config.settings import settings
@@ -40,7 +41,7 @@ class GroqGenerator:
             "technical": "You are a technical expert. Explain concepts clearly with practical examples. Focus on implementation details and trade-offs.",
             "researcher": "You are a research synthesizer. Integrate multiple perspectives, highlight key findings, and identify gaps or contradictions.",
             "simple": "Answer clearly and concisely. Use simple language. Focus on the most important points.",
-            "mes_expert": "You are an expert in Manufacturing Execution Systems (MES). Provide accurate, practical information about MES concepts, implementation, and best practices."
+            "general_expert": "You are an expert assistant providing accurate, practical information about various topics. Provide comprehensive and helpful responses."
         }
 
     def _format_context(self, documents: List[Dict[str, Any]], citation_style: Literal["inline", "footnote", "numbered"] = "inline") -> str:
@@ -49,6 +50,8 @@ class GroqGenerator:
 
         for i, doc in enumerate(documents, 1):
             source = doc.get('metadata', {}).get('source', 'unknown')
+            # Extract only filename for security (don't show full path)
+            source_filename = Path(source).name if source != 'unknown' else 'unknown'
             page = doc.get('metadata', {}).get('page', 'unknown')
             content = doc.get('content', '')
             chunk_id = doc.get('chunk_id', '')
@@ -57,13 +60,13 @@ class GroqGenerator:
             if citation_style == "inline":
                 context_parts.append(
                     f"[{i}] {content}\n"
-                    f"    (Source: {source}, Page: {page})"
+                    f"    (Source: {source_filename}, Page: {page})"
                 )
 
             elif citation_style == "footnote":
                 context_parts.append(
                     f"{content} [{i}]\n"
-                    f"Footnote {i}: Source: {source}, Page: {page}"
+                    f"Footnote {i}: Source: {source_filename}, Page: {page}"
                 )
 
             elif citation_style == "numbered":
@@ -71,7 +74,7 @@ class GroqGenerator:
                 if i == len(documents):
                     # Add all sources at the end
                     sources_info = "\n".join(
-                        [f"{j}. Source: {d.get('metadata', {}).get('source', 'unknown')}, Page: {d.get('metadata', {}).get('page', 'unknown')}"
+                        [f"{j}. Source: {Path(d.get('metadata', {}).get('source', 'unknown')).name}, Page: {d.get('metadata', {}).get('page', 'unknown')}"
                          for j, d in enumerate(documents, 1)]
                     )
                     context_parts.append(f"\nSources:\n{sources_info}")
@@ -84,10 +87,10 @@ class GroqGenerator:
             return config.system_message
 
         format_defaults = {
-            ResponseFormat.NARRATIVE: "Provide a comprehensive answer with citations. You are an expert assistant for Manufacturing Execution Systems (MES).",
-            ResponseFormat.STRUCTURED: "Organize your answer with clear sections and bullet points. Focus on MES concepts and practical applications.",
-            ResponseFormat.CONCISE: "Provide a brief, direct answer with essential sources. Be specific about MES terminology and processes.",
-            ResponseFormat.RESEARCH: "Synthesize information from multiple sources. Show analysis and reasoning about MES systems and implementations.",
+            ResponseFormat.NARRATIVE: "Provide a comprehensive answer with citations. You are an expert assistant providing detailed, accurate information.",
+            ResponseFormat.STRUCTURED: "Organize your answer with clear sections and bullet points. Focus on key concepts and practical applications.",
+            ResponseFormat.CONCISE: "Provide a brief, direct answer with essential sources. Be specific and clear in your response.",
+            ResponseFormat.RESEARCH: "Synthesize information from multiple sources. Show analysis and reasoning about the topic.",
         }
         return format_defaults.get(config.response_format, format_defaults[ResponseFormat.NARRATIVE])
 

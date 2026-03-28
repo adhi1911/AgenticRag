@@ -17,7 +17,7 @@ load_dotenv()
 
 class Settings:
     GROQ_API_KEY: str = os.getenv("GROQ_API_KEY")
-    GROQ_MODEL: str = os.getenv("GROQ_MODEL", "mixtral-8x7b-32768")
+    GROQ_MODEL: str = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
     GROQ_TEMPERATURE: float = float(os.getenv("GROQ_TEMPERATURE", 0.3))
     GROQ_MAX_TOKENS: int = int(os.getenv("GROQ_MAX_TOKENS", 1024))
 

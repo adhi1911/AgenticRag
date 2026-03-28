@@ -523,8 +523,17 @@ def load_documents_from_json(input_file: str) -> List[Document]:
     Returns:
         List of Document objects
     """
-    with open(input_file, "r", encoding="utf-8") as f:
-        docs_data = json.load(f)
+    try:
+        with open(input_file, "r", encoding="utf-8") as f:
+            content = f.read().strip()
+            # Handle empty files
+            if not content:
+                logger.info(f"File {input_file} is empty, returning empty list")
+                return []
+            docs_data = json.loads(content)
+    except json.JSONDecodeError as e:
+        logger.warning(f"Failed to decode JSON from {input_file}: {e}. Returning empty list.")
+        return []
     
     documents = [
         Document(page_content=doc["page_content"], metadata=doc["metadata"])

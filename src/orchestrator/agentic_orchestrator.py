@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from langchain_core.documents import Document
 
 from config.settings import settings
-from src.ingestion.processor import IngestionProcessor, load_documents_from_json
+from src.ingestion.processor import IngestionProcessor, load_documents_from_json, save_documents_to_json
 from src.embeddings.embedding_manager import EmbeddingManager
 from src.retrieval.advanced_retriever import AdvancedRetriever
 from src.generation.response_generator import ResponseGenerator
@@ -211,15 +211,23 @@ class AgenticOrchestrator:
 
                 # Process the file
                 result = self.document_processor.process_file(str(file_path))
-                processed_files.append({
-                    "filename": file_path.name,
-                    "path": str(file_path),
-                    "chunks_created": len(result.get("chunks", [])),
-                    "metadata": result.get("metadata", {})
-                })
+                
+                # Check if processing was successful
+                if result.get("success", False):
+                    processed_files.append({
+                        "filename": file_path.name,
+                        "path": str(file_path),
+                        "chunks": result.get("chunks", []),
+                        "chunks_created": len(result.get("chunks", [])),
+                        "metadata": result.get("metadata", {})
+                    })
+                else:
+                    errors.append(f"{file_path.name}: {result.get('error', 'Unknown error')}")
+                    logger.error(f"Failed to process {file_path.name}: {result.get('error', 'Unknown error')}")
 
             except Exception as e:
                 errors.append(f"Error processing {file_path.name}: {str(e)}")
+                logger.error(f"Exception in file upload: {str(e)}")
 
         # Auto-ingest if enabled
         if self.config.enable_auto_ingest and processed_files:
@@ -262,7 +270,16 @@ class AgenticOrchestrator:
                     all_processed.append(result)
                 elif path.is_dir():
                     results = self.document_processor.process_directory(path_str)
-                    all_processed.extend(results)
+                    # process_directory returns tuple (documents, summary)
+                    if isinstance(results, tuple) and len(results) == 2:
+                        documents, summary = results
+                        all_processed.append({
+                            "chunks": documents,
+                            "metadata": summary,
+                            "success": True
+                        })
+                    else:
+                        all_processed.append(results)
                 else:
                     errors.append(f"Path not found: {path_str}")
 
@@ -412,14 +429,44 @@ class AgenticOrchestrator:
         return quoted_paths + potential_paths
 
     def _ingest_processed_documents(self, processed_docs: List[Dict]) -> None:
-        """Ingest processed documents into the vector database."""
+        """Ingest processed documents into the vector database and save to disk."""
         all_chunks = []
         for doc_result in processed_docs:
-            all_chunks.extend(doc_result.get("chunks", []))
+            chunks = doc_result.get("chunks", [])
+            logger.info(f"Extracting chunks from doc_result: got {len(chunks)} chunks")
+            if chunks:
+                logger.debug(f"First chunk type: {type(chunks[0])}")
+            all_chunks.extend(chunks)
 
+        logger.info(f"Total chunks to ingest: {len(all_chunks)}")
         if all_chunks:
-            self.embedding_manager.add_documents(all_chunks)
-            logger.info(f"Ingested {len(all_chunks)} chunks into vector database")
+            logger.debug(f"First chunk in all_chunks: type={type(all_chunks[0])}, has page_content={hasattr(all_chunks[0], 'page_content')}")
+            
+        if all_chunks:
+            # Save chunks to processed directory (append to existing documents)
+            processed_file = settings.PROCESSED_DIR / "processed_documents.json"
+            
+            # Load existing documents
+            existing_docs = []
+            if processed_file.exists():
+                try:
+                    existing_docs = load_documents_from_json(str(processed_file))
+                    logger.info(f"✓ Loaded {len(existing_docs)} existing documents")
+                except Exception as e:
+                    logger.warning(f"Could not load existing documents, starting fresh: {str(e)}")
+                    existing_docs = []
+            
+            # Combine existing and new documents
+            combined_docs = existing_docs + all_chunks
+            logger.info(f"Combining {len(existing_docs)} existing + {len(all_chunks)} new = {len(combined_docs)} total documents")
+            
+            # Save combined documents
+            save_documents_to_json(combined_docs, str(processed_file))
+            logger.info(f"✓ Saved {len(combined_docs)} total chunks to {processed_file}")
+            
+            # Ingest new chunks into vector database
+            self.embedding_manager.insert_vectors(all_chunks)
+            logger.info(f"✓ Ingested {len(all_chunks)} new chunks into vector database")
 
     def get_capabilities(self) -> Dict[str, Any]:
         """Get system capabilities and supported operations."""

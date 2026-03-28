@@ -88,13 +88,13 @@ class EmbeddingManager:
             raise
 
     def insert_vectors(self,
-                       documents: List[Dict],
+                       documents: List,
                        collection_name: str = settings.CHROMA_COLLECTION_NAME
                     ) -> int:
         """
         Inserts documents with embeddings into ChromaDB collection
         Args:
-            documents: list of dicts with keys: chunk_id, source, source_type, chunk_index, total_chunks, page_content, metadata_json
+            documents: list of LangChain Document objects or dicts with keys: page_content, metadata
             collection_name: name of the ChromaDB collection to insert into
         Returns:
             Number of vectors inserted
@@ -104,37 +104,109 @@ class EmbeddingManager:
                 logger.warning("No documents to insert")
                 return 0
 
+            logger.info(f"Processing {len(documents)} documents for insertion")
+
+            # Normalize all documents to dict format first
+            normalized_docs = []
+            for i, doc in enumerate(documents):
+                try:
+                    if hasattr(doc, 'page_content') and hasattr(doc, 'metadata'):
+                        # LangChain Document object - convert to dict
+                        logger.debug(f"Document {i}: Converting LangChain Document to dict")
+                        normalized_docs.append({
+                            'page_content': doc.page_content,
+                            'metadata': dict(doc.metadata) if hasattr(doc.metadata, '__iter__') else doc.metadata
+                        })
+                    elif isinstance(doc, dict) and 'page_content' in doc and 'metadata' in doc:
+                        # Already a proper dict
+                        logger.debug(f"Document {i}: Already a dict")
+                        normalized_docs.append(doc)
+                    else:
+                        logger.error(f"Document {i}: Invalid format - type={type(doc)}, has page_content={hasattr(doc, 'page_content')}")
+                        raise ValueError(f"Document {i}: Invalid format. Expected Document object or dict with page_content and metadata")
+                except Exception as e:
+                    logger.error(f"Error normalizing document {i}: {str(e)}", exc_info=True)
+                    raise
+
+            logger.info(f"Normalized {len(normalized_docs)} documents to dict format")
+
             # get or create collection
             collection = self.chroma_client.get_or_create_collection(collection_name)
 
             # extract texts and generate embeddings
-            texts = [doc["page_content"] for doc in documents]
-            embeddings = self.generate_embeddings(texts)
-
-            # prepare data for ChromaDB
-            ids = [doc["metadata"].get("chunk_id", f"chunk_{i}") for i, doc in enumerate(documents)]
+            texts = []
             metadatas = []
-            for doc in documents:
-                metadata = doc["metadata"].copy()
-                metadata["source"] = doc["metadata"].get("source", "unknown")
-                metadata["source_type"] = doc["metadata"].get("source_type", "unknown")
-                metadata["chunk_index"] = doc["metadata"].get("chunk_index", 0)
-                metadata["total_chunks"] = doc["metadata"].get("total_chunks", 1)
-                metadatas.append(metadata)
+            ids = []
 
-            # insert into ChromaDB
+            for i, doc_dict in enumerate(normalized_docs):
+                texts.append(doc_dict['page_content'])
+                metadata = doc_dict['metadata'].copy() if isinstance(doc_dict['metadata'], dict) else dict(doc_dict['metadata'])
+                # Ensure required metadata fields
+                metadata["source"] = metadata.get("source", "unknown")
+                metadata["source_type"] = metadata.get("source_type", "unknown")
+                metadata["chunk_index"] = metadata.get("chunk_index", 0)
+                metadata["total_chunks"] = metadata.get("total_chunks", 1)
+                metadatas.append(metadata)
+                ids.append(metadata.get("chunk_id", f"chunk_{i}"))
+
+            # Check for duplicate IDs within this batch and fix them
+            logger.info(f"Checking for duplicate IDs in batch of {len(ids)} documents...")
+            seen_ids = {}
+            fixed_count = 0
+            for i, id_str in enumerate(ids):
+                if id_str in seen_ids:
+                    # Found duplicate - append index to make it unique
+                    original_id = id_str
+                    new_id = f"{id_str}__{i}"
+                    logger.warning(f"⚠️ Duplicate ID detected: '{original_id}' at index {i}, renaming to '{new_id}'")
+                    ids[i] = new_id
+                    fixed_count += 1
+                else:
+                    seen_ids[id_str] = i
+
+            if fixed_count > 0:
+                logger.warning(f"⚠️ Fixed {fixed_count} duplicate IDs in this batch")
+            else:
+                logger.info(f"✓ All {len(ids)} IDs are unique")
+
+            logger.info(f"Extracted {len(texts)} texts for embedding")
+            logger.debug(f"First 3 IDs: {ids[:3]}")
+            embeddings = self.generate_embeddings(texts)
+            logger.info(f"Generated embeddings for {len(embeddings)} documents")
+
+            # Before inserting, handle any existing IDs to avoid conflicts
+            logger.info(f"Preparing for insertion into ChromaDB...")
+            ids_to_add = ids.copy()
+            
+            try:
+                # Try to get existing documents and check for conflicts
+                collection_data = collection.get(include=[])
+                existing_ids = set(collection_data.get('ids', []))
+                
+                # Find IDs that already exist
+                conflicting_ids = [id for id in ids_to_add if id in existing_ids]
+                
+                if conflicting_ids:
+                    logger.info(f"Found {len(conflicting_ids)} IDs already in collection, deleting them first...")
+                    collection.delete(ids=conflicting_ids)
+                    logger.info(f"✓ Deleted {len(conflicting_ids)} existing IDs")
+            except Exception as e:
+                logger.debug(f"Could not pre-check for existing IDs (collection may be empty): {str(e)}")
+
+            # Now add the documents
+            logger.info(f"Adding {len(ids_to_add)} documents to ChromaDB collection '{collection_name}'...")
             collection.add(
                 embeddings=embeddings.tolist(),
                 documents=texts,
                 metadatas=metadatas,
-                ids=ids
+                ids=ids_to_add
             )
 
-            logger.info(f"Inserted {len(documents)} vectors into '{collection_name}'")
-            return len(documents)
+            logger.info(f"✓ Successfully inserted {len(normalized_docs)} vectors into '{collection_name}'")
+            return len(normalized_docs)
 
         except Exception as e:
-            logger.error(f"Failed to insert vectors: {str(e)}")
+            logger.error(f"Failed to insert vectors: {str(e)}", exc_info=True)
             raise
 
     def search_similar(self,

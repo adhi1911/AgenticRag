@@ -26,8 +26,14 @@ class HybridRetriever:
             for doc in documents
         }
         
-        corpus = [doc.page_content.lower().split() for doc in documents]
-        self.bm25 = BM25Okapi(corpus)
+        # Handle empty document list - BM25Okapi can't be initialized with empty corpus
+        if documents:
+            corpus = [doc.page_content.lower().split() for doc in documents]
+            self.bm25 = BM25Okapi(corpus)
+        else:
+            logger.warning("No documents provided - BM25 will not be initialized. Sparse search will not work until documents are added.")
+            self.bm25 = None
+        
         logger.info(f"Hybrid retriever initialized with {len(documents)} documents")
         logger.info(f"Dense weight: {dense_weight}, Sparse weight: {sparse_weight}")
 
@@ -41,6 +47,11 @@ class HybridRetriever:
 
     def _bm25_search(self, query: str, top_k: int) -> List[Dict[str, Any]]:
         try:
+            # Handle case when no documents are available
+            if self.bm25 is None:
+                logger.debug("BM25 not initialized - no documents available")
+                return []
+            
             tokens = query.lower().split()
             scores = self.bm25.get_scores(tokens)
             top_indices = np.argsort(scores)[::-1][:top_k]
