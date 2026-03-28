@@ -145,52 +145,7 @@ class AgenticRAGApp:
         **Intelligent Knowledge Base**
 
         Ask questions about any topic and get AI-powered answers with source citations.
-        The system uses advanced RAG (Retrieval-Augmented Generation) with intelligent document search and answer generation.
         """)
-
-        # Quick stats
-        if self.orchestrator:
-            try:
-                status = self.orchestrator.route_request("status")
-                if status["success"]:
-                    stats = status.get("stats", {})
-
-                    col1, col2, col3, col4 = st.columns(4)
-                    with col1:
-                        st.markdown(f"""
-                        <div class="metric-card">
-                            <div class="metric-value">{stats.get('total_documents', 0)}</div>
-                            <div class="metric-label">Documents</div>
-                        </div>
-                        """, unsafe_allow_html=True)
-
-                    with col2:
-                        model_name = stats.get('generation_model', 'unknown')
-                        display_name = model_name.replace('llama-3.1-8b-instant', 'Llama 3.1')
-                        st.markdown(f"""
-                        <div class="metric-card">
-                            <div class="metric-value">{display_name[:10]}</div>
-                            <div class="metric-label">AI Model</div>
-                        </div>
-                        """, unsafe_allow_html=True)
-
-                    with col3:
-                        st.markdown("""
-                        <div class="metric-card">
-                            <div class="metric-value">Hybrid</div>
-                            <div class="metric-label">Retrieval</div>
-                        </div>
-                        """, unsafe_allow_html=True)
-
-                    with col4:
-                        st.markdown("""
-                        <div class="metric-card">
-                            <div class="metric-value">RAG</div>
-                            <div class="metric-label">Generation</div>
-                        </div>
-                        """, unsafe_allow_html=True)
-            except Exception as e:
-                logger.warning(f"Could not load stats: {e}")
 
     def render_sidebar(self):
         """Render the sidebar with controls and information"""
@@ -290,24 +245,32 @@ class AgenticRAGApp:
 
             processed = 0
             errors = []
+            skipped = []
 
             for i, file in enumerate(uploaded_files):
                 try:
                     status_text.text(f"Processing: {file.name}")
 
-                    # Save uploaded file temporarily
-                    temp_path = self.save_uploaded_file(file)
-
-                    # Ingest the file
-                    result = self.orchestrator.route_request("ingest documents", files=[temp_path])
-
-                    if result["success"]:
-                        processed += 1
-                        st.success(f"✓ Ingested: {file.name}")
+                    # Check if file already exists in PDFs directory (deduplication)
+                    target_path = PDF_DIR / file.name
+                    if target_path.exists():
+                        skipped.append(f"{file.name}: Already ingested")
+                        logger.info(f"Skipped duplicate: {file.name}")
                     else:
-                        errors.append(f"{file.name}: {result.get('error', 'Unknown error')}")
+                        # Save uploaded file to persistent location (not temp)
+                        file_path = PDF_DIR / file.name
+                        PDF_DIR.mkdir(parents=True, exist_ok=True)
+                        with open(file_path, 'wb') as f:
+                            f.write(file.getvalue())
 
-                    # File is now in data/ directory, keep it for future reference
+                        # Ingest the file from persistent location
+                        result = self.orchestrator.route_request("ingest documents", files=[str(file_path)])
+
+                        if result["success"]:
+                            processed += 1
+                            st.success(f"✓ Ingested: {file.name}")
+                        else:
+                            errors.append(f"{file.name}: {result.get('error', 'Unknown error')}")
 
                 except Exception as e:
                     errors.append(f"{file.name}: {str(e)}")
@@ -320,36 +283,10 @@ class AgenticRAGApp:
 
             if processed > 0:
                 st.success(f"✅ Successfully ingested {processed} document(s)")
-                if errors:
-                    st.warning(f"⚠️ {len(errors)} file(s) had errors: {', '.join(errors)}")
-            else:
-                st.error(f"❌ Failed to ingest any documents. Errors: {', '.join(errors)}")
-
-    def save_uploaded_file(self, uploaded_file) -> Path:
-        """Save uploaded file to appropriate data directory based on file type"""
-        # Determine target directory based on file extension
-        file_ext = Path(uploaded_file.name).suffix.lower()
-        
-        if file_ext == '.pdf':
-            target_dir = PDF_DIR
-        elif file_ext in ['.mp4', '.avi', '.mov', '.mkv']:
-            target_dir = VIDEO_DIR
-        elif file_ext in ['.txt', '.srt'] and any(kw in uploaded_file.name.lower() for kw in ['transcript', 'audio', 'video']):
-            target_dir = TRANSCRIPTS_DIR
-        else:
-            target_dir = PDF_DIR  # Default to pdfs directory
-        
-        # Ensure directory exists
-        target_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Save file with its original name
-        file_path = target_dir / uploaded_file.name
-        
-        # Write file contents
-        with open(file_path, 'wb') as f:
-            f.write(uploaded_file.getvalue())
-        
-        return file_path
+            if skipped:
+                st.info(f"⊘ Skipped {len(skipped)} duplicate file(s): {', '.join([s.split(':')[0] for s in skipped])}")
+            if errors:
+                st.warning(f"⚠️ {len(errors)} file(s) had errors: {', '.join(errors)}")
 
     def render_query_interface(self):
         """Render the main query interface"""
@@ -411,19 +348,67 @@ class AgenticRAGApp:
         sources = result.get("sources", [])
         metadata = result.get("metadata", {})
 
+        # Show mode indicator (AGENTIC vs STANDARD RAG)
+        mode = metadata.get("mode", "standard")
+        if mode == "agentic":
+            st.info("🤖 **Agentic Mode**: Using intelligent reasoning loop (THINK → ACT → OBSERVE → DECIDE)")
+        
         # Answer section
         st.markdown("### 📝 Answer")
         st.markdown(answer)
 
-        # Metadata
+        # AGENTIC: Show reasoning trace if agentic mode was used
+        if metadata.get("mode") == "agentic":
+            st.markdown("### 🤖 Agent Reasoning Trace")
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Iterations", metadata.get("iterations", 0))
+            with col2:
+                reformations = metadata.get("reformulations", 0)
+                st.metric("Reformulations", reformations)
+            with col3:
+                confidence_pct = metadata.get("confidence", 0) * 100
+                st.metric("Confidence", f"{confidence_pct:.0f}%")
+            
+            # Show thought process - expanded if there were reformulations
+            reasoning_steps = metadata.get("agent_reasoning", [])
+            has_reformulations = metadata.get("reformulations", 0) > 0
+            
+            if has_reformulations:
+                st.markdown("**🧠 Agent Thought Process** (Query was reformulated):")
+                for step in reasoning_steps:
+                    step_num = step.get("step", "?")
+                    action = step.get("action", "").upper()
+                    reasoning = step.get("reasoning", "")
+                    result_text = step.get("result", "")
+                    
+                    st.write(f"**Step {step_num}: {action}**")
+                    st.write(f"*{reasoning}*")
+                    st.write(f"`→ {result_text}`")
+                    st.divider()
+            else:
+                with st.expander("🧠 Show Agent Thought Process (First iteration - no reformulation)"):
+                    for step in reasoning_steps:
+                        step_num = step.get("step", "?")
+                        action = step.get("action", "").upper()
+                        reasoning = step.get("reasoning", "")
+                        result_text = step.get("result", "")
+                        
+                        st.write(f"**Step {step_num}: {action}**")
+                        st.write(f"*{reasoning}*")
+                        st.write(f"`→ {result_text}`")
+                        st.divider()
+
+        # Original metadata display
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             st.metric("Processing Time", f"{processing_time:.2f}s")
         with col2:
             st.metric("Sources Found", len(sources))
         with col3:
-            confidence = "High" if len(sources) > 0 else "Low"
-            st.metric("Confidence", confidence)
+            # Show actual temperature used, not just static confidence
+            temp = metadata.get("temperature", st.session_state.temperature)
+            st.metric("Temperature", f"{temp:.2f}")
         with col4:
             model = metadata.get("model", "unknown").replace("llama-3.1-8b-instant", "Llama 3.1")
             st.metric("Model", model[:12])

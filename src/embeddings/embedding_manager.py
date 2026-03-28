@@ -299,6 +299,66 @@ class EmbeddingManager:
             logger.error(f"Embedding search failed: {str(e)}")
             raise
 
+    def remove_duplicates(self, collection_name: str = settings.CHROMA_COLLECTION_NAME) -> Dict[str, Any]:
+        """
+        Remove duplicate chunks from the collection, keeping the first occurrence.
+        This is useful if the same document was uploaded multiple times.
+        
+        Returns:
+            Dict with removal statistics
+        """
+        try:
+            collection = self.chroma_client.get_collection(collection_name)
+            data = collection.get(include=['metadatas'])
+            
+            ids = data['ids']
+            metadatas = data['metadatas'] if data['metadatas'] else []
+            
+            # Group by source to find duplicate files
+            source_chunks = {}
+            for i, id_str in enumerate(ids):
+                metadata = metadatas[i] if i < len(metadatas) else {}
+                source = metadata.get('source', 'unknown') if isinstance(metadata, dict) else 'unknown'
+                if source not in source_chunks:
+                    source_chunks[source] = []
+                source_chunks[source].append(id_str)
+            
+            # Find and remove duplicate chunks from the same source
+            duplicates_to_remove = []
+            for source, chunk_ids in source_chunks.items():
+                # If same source appears multiple times, keep first, remove rest
+                if len(chunk_ids) > 1:
+                    logger.info(f"Source '{source}' has {len(chunk_ids)} chunks - this indicates duplicates")
+            
+            # Also check for exact duplicate chunk IDs
+            ids_list = list(ids)
+            seen = set()
+            for id_str in ids_list:
+                if id_str in seen:
+                    duplicates_to_remove.append(id_str)
+                else:
+                    seen.add(id_str)
+            
+            if duplicates_to_remove:
+                logger.info(f"Found {len(duplicates_to_remove)} duplicate chunk IDs. Removing...")
+                collection.delete(ids=duplicates_to_remove)
+                logger.info(f"✓ Removed {len(duplicates_to_remove)} duplicate chunks")
+                return {
+                    "success": True,
+                    "duplicates_removed": len(duplicates_to_remove),
+                    "remaining_chunks": len(ids_list) - len(duplicates_to_remove)
+                }
+            else:
+                logger.info("No duplicate chunk IDs found")
+                return {
+                    "success": True,
+                    "duplicates_removed": 0,
+                    "remaining_chunks": len(ids_list)
+                }
+        except Exception as e:
+            logger.error(f"Error removing duplicates: {str(e)}")
+            return {"success": False, "error": str(e)}
+
     def get_collection_stats(self, collection_name: str = settings.CHROMA_COLLECTION_NAME) -> Dict:
         """
         Get statistics about the collection including unique document count

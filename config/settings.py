@@ -38,7 +38,7 @@ class Settings:
 
 
     SIMILARITY_THRESHOLD: float = float(os.getenv("SIMILARITY_THRESHOLD", 0.5))
-    TOP_K_RESULTS: int = int(os.getenv("TOP_K_RESULTS", 3))
+    TOP_K_RESULTS: int = int(os.getenv("TOP_K_RESULTS", 5))
 
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
 

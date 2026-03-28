@@ -10,6 +10,7 @@ from src.ingestion.processor import IngestionProcessor, load_documents_from_json
 from src.embeddings.embedding_manager import EmbeddingManager
 from src.retrieval.advanced_retriever import AdvancedRetriever
 from src.generation.response_generator import ResponseGenerator
+from src.agent.react_agent import ReActAgent
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +43,8 @@ class OrchestratorConfig:
     max_upload_size_mb: int = settings.MAX_PDF_SIZE_MB
     confidence_threshold: float = 0.7
     enable_reasoning: bool = True
+    enable_agentic_mode: bool = True  # AGENTIC: Enable iterative reasoning and reformulation
+    max_agent_iterations: int = 3  # AGENTIC: Max reformulation attempts
 
 
 class AgenticOrchestrator:
@@ -67,6 +70,13 @@ class AgenticOrchestrator:
 
         self.retriever = AdvancedRetriever(self.embedding_manager, self.documents)
         self.generator = ResponseGenerator(self.retriever)
+        
+        # AGENTIC: Initialize ReAct agent for iterative reasoning
+        self.agent = ReActAgent(
+            response_generator=self.generator,
+            max_iterations=self.config.max_agent_iterations,
+            confidence_threshold=self.config.confidence_threshold
+        )
 
         #keyword lists for intent detection
         self.ingest_keywords = [
@@ -87,6 +97,12 @@ class AgenticOrchestrator:
         ]
 
         logger.info("AgenticOrchestrator initialized")
+        
+        # Clean up any duplicates from the vector database (handles multiple uploads of same document)
+        logger.info("Checking for and removing any duplicate chunks...")
+        cleanup_result = self.embedding_manager.remove_duplicates()
+        if cleanup_result.get('success') and cleanup_result.get('duplicates_removed', 0) > 0:
+            logger.info(f"✓ Cleaned up {cleanup_result['duplicates_removed']} duplicate chunks")
 
     def _load_existing_documents(self) -> List[Document]:
         """Load existing processed documents from storage."""
@@ -302,25 +318,48 @@ class AgenticOrchestrator:
         }
 
     def _handle_question(self, user_input: str, **kwargs) -> Dict[str, Any]:
-        """Handle question-answering requests using RAG pipeline."""
+        """Handle question-answering requests using RAG pipeline or agentic reasoning."""
         try:
-            result = self.generator.generate_response(user_input, **kwargs)
+            # AGENTIC: Use ReAct loop if enabled
+            if self.config.enable_agentic_mode:
+                logger.info("Using agentic (iterative) reasoning mode")
+                agent_result, agent_trace = self.agent.process_query(user_input, **kwargs)
+                
+                return {
+                    "action": ActionType.GENERATE.value,
+                    "success": agent_result["success"],
+                    "query": user_input,
+                    "answer": agent_result["answer"],
+                    "sources": agent_result.get("sources", []),  # Include sources from final iteration
+                    "confidence": agent_result.get("confidence", 0.0),  # AGENTIC: Pass through confidence
+                    "iterations": agent_result.get("iterations", 0),    # AGENTIC: Pass through iterations
+                    "reformulations": agent_result.get("reformulations", 0),  # AGENTIC: Pass through reformulations
+                    "metadata": agent_result.get("metadata", {}),  # This includes temperature and other params
+                    "response": agent_result["answer"]
+                }
+            else:
+                # Fallback: Standard RAG (non-agentic)
+                logger.info("Using standard RAG mode (non-agentic)")
+                result = self.generator.generate_response(user_input, **kwargs)
 
-            return {
-                "action": ActionType.GENERATE.value,
-                "success": True,
-                "query": user_input,
-                "answer": result.get("answer", ""),
-                "sources": result.get("sources", []),
-                "metadata": {
-                    "num_sources": result.get("num_sources", 0),
-                    "response_format": result.get("response_format", "unknown"),
-                    "model": result.get("model", "unknown")
-                },
-                "response": result.get("answer", "No answer generated")
-            }
+                return {
+                    "action": ActionType.GENERATE.value,
+                    "success": True,
+                    "query": user_input,
+                    "answer": result.get("answer", ""),
+                    "sources": result.get("sources", []),
+                    "metadata": {
+                        "mode": "standard_rag",
+                        "num_sources": result.get("num_sources", 0),
+                        "response_format": result.get("response_format", "unknown"),
+                        "model": result.get("model", "unknown"),
+                        "temperature": result.get("temperature", 0.3)
+                    },
+                    "response": result.get("answer", "No answer generated")
+                }
 
         except Exception as e:
+            logger.error(f"Error in question handling: {e}")
             return {
                 "action": ActionType.GENERATE.value,
                 "success": False,
@@ -482,11 +521,22 @@ class AgenticOrchestrator:
             "supported_intents": [intent.value for intent in QueryIntent],
             "file_types": [".pdf", ".txt", ".md", ".json"],
             "max_file_size_mb": self.config.max_upload_size_mb,
+            "agentic_features": {
+                "enabled": self.config.enable_agentic_mode,
+                "iterative_reasoning": "ReAct (Reasoning + Acting) loop",
+                "query_reformulation": "Automatic query refinement based on retrieval quality",
+                "confidence_scoring": "Answer evaluation with confidence metrics",
+                "reasoning_trace": "Transparent agent thought process",
+                "max_iterations": self.config.max_agent_iterations
+            },
             "features": [
                 "Document ingestion and processing",
                 "Hybrid retrieval with reranking",
                 "Query transformation (multi-query)",
-                "Flexible answer generation",
+                "Flexibility: agentic vs standard RAG modes",
+                "Iterative quality evaluation and reformulation",
+                "Answer confidence assessment",
+                "Reasoning transparency (agent trace)",
                 "Citation support",
                 "File upload handling"
             ]
