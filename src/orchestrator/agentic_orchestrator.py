@@ -331,9 +331,15 @@ class AgenticOrchestrator:
     def _handle_status_request(self) -> Dict[str, Any]:
         """Handle status and statistics requests."""
         try:
+            # Get document count from ChromaDB (count unique documents, not chunks)
+            chroma_stats = self.embedding_manager.get_collection_stats()
+            num_documents = chroma_stats.get('num_documents', 0) if chroma_stats.get('exists') else 0
+            num_chunks = chroma_stats.get('num_chunks', 0) if chroma_stats.get('exists') else 0
+            
             # Get basic stats
             stats = {
-                "total_documents": len(self.documents),
+                "total_documents": num_documents,
+                "total_chunks": num_chunks,
                 "embedding_model": self.embedding_manager.model_name if hasattr(self.embedding_manager, 'model_name') else 'sentence-transformers/all-MiniLM-L6-v2',
                 "vector_db": "ChromaDB",
                 "generation_model": self.generator.groq_generator.model_name,
@@ -348,6 +354,7 @@ class AgenticOrchestrator:
             response_text = f"""
                     System Status:
                     • Documents in knowledge base: {stats['total_documents']}
+                    • Total chunks indexed: {stats['total_chunks']}
                     • Embedding model: {stats['embedding_model']}
                     • Vector database: {stats['vector_db']}
                     • Generation model: {stats['generation_model']}

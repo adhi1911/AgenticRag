@@ -301,15 +301,29 @@ class EmbeddingManager:
 
     def get_collection_stats(self, collection_name: str = settings.CHROMA_COLLECTION_NAME) -> Dict:
         """
-        Get statistics about the collection
+        Get statistics about the collection including unique document count
         """
         try:
             collection = self.chroma_client.get_collection(collection_name)
-            count = collection.count()
+            total_chunks = collection.count()
+            
+            # Get all metadata to count unique documents
+            unique_documents = set()
+            if total_chunks > 0:
+                # Fetch all data to get metadata
+                all_data = collection.get()
+                if all_data and 'metadatas' in all_data:
+                    for metadata in all_data['metadatas']:
+                        source = metadata.get('source', 'unknown')
+                        if source:
+                            unique_documents.add(source)
+            
             return {
                 'exists': True,
                 'collection_name': collection_name,
-                'num_entities': count,
+                'num_chunks': total_chunks,
+                'num_documents': len(unique_documents),
+                'num_entities': total_chunks,
                 'embedding_dim': self.model.get_sentence_embedding_dimension(),
                 'metric_type': 'cosine'
             }

@@ -93,6 +93,10 @@ class IngestionProcessor:
                 logger.warning(f"PDF {file_path.name} returned no documents")
                 raise ValueError("No documents extracted from PDF")
             
+            # Fix: Set source to filename only, not full path
+            for doc in documents:
+                doc.metadata["source"] = file_path.name
+            
             logger.info(f"✓ Loaded {len(documents)} pages from PDF")
             return documents
             
@@ -125,6 +129,10 @@ class IngestionProcessor:
             if not documents:
                 logger.warning(f"Text file {file_path.name} is empty")
                 raise ValueError("File contains no text")
+            
+            # Fix: Set source to filename only, not full path
+            for doc in documents:
+                doc.metadata["source"] = file_path.name
             
             logger.info(f"✓ Loaded {len(documents)} document(s) from text file")
             return documents
@@ -175,7 +183,7 @@ class IngestionProcessor:
             doc = Document(
                 page_content=log_content,
                 metadata={
-                    "source": str(file_path),
+                    "source": file_path.name,
                     "source_type": "log",
                     "log_type": detected_type,
                     "timestamp": datetime.now().isoformat(),
@@ -235,7 +243,7 @@ class IngestionProcessor:
             doc = Document(
                 page_content=transcript_text,
                 metadata={
-                    "source": str(file_path),
+                    "source": file_path.name,
                     "source_type": detected_type,
                     "transcript_type": detected_type,
                     "timestamp": datetime.now().isoformat(),
@@ -276,17 +284,26 @@ class IngestionProcessor:
                 
                 chunks = self.text_splitter.split_text(doc.page_content)
                 
-                file_hash = self._generate_file_hash(doc.metadata.get("source", ""))
+                source_path = doc.metadata.get("source", "")
+                # Source should already be a filename from loaders, but ensure it is
+                if source_path and ("\\" in source_path or "/" in source_path):
+                    source_filename = Path(source_path).name
+                else:
+                    source_filename = source_path if source_path else "unknown"
+                
+                file_hash = self._generate_file_hash_safe(source_path) if source_path else ""
                 
                 for chunk_idx, chunk_text in enumerate(chunks):
                     chunk_id = self._generate_chunk_id(
-                        doc.metadata.get("source", "unknown"),
+                        source_filename,
                         chunk_idx,
                         file_hash
                     )
                     
                     # preserving original metadata and adding chunk-specific metadata
                     chunk_metadata = doc.metadata.copy()
+                    # Ensure source is just the filename
+                    chunk_metadata["source"] = source_filename
                     chunk_metadata.update({
                         "chunk_id": chunk_id,
                         "chunk_index": chunk_idx,
@@ -306,6 +323,26 @@ class IngestionProcessor:
         except Exception as e:
             logger.error(f"Error chunking documents: {str(e)}")
             raise
+    
+    def _generate_file_hash_safe(self, file_path: str) -> str:
+        """Generate SHA256 hash of file for tracking duplicates, safely handling missing files"""
+        try:
+            sha256_hash = hashlib.sha256()
+            # Handle case where file_path might be a filename (not full path)
+            if not Path(file_path).exists():
+                # If file doesn't exist, hash the filename itself
+                sha256_hash.update(file_path.encode())
+            else:
+                with open(file_path, "rb") as f:
+                    for byte_block in iter(lambda: f.read(4096), b""):
+                        sha256_hash.update(byte_block)
+            return sha256_hash.hexdigest()[:16]
+        except Exception as e:
+            logger.warning(f"Could not generate hash for {file_path}, using filename hash: {e}")
+            # Fallback: hash the filename
+            sha256_hash = hashlib.sha256()
+            sha256_hash.update(Path(file_path).name.encode())
+            return sha256_hash.hexdigest()[:16]
     
     # main orchestrator
     
@@ -380,22 +417,25 @@ class IngestionProcessor:
         """
         try:
             chunks = self.process_document(file_path)
+            # Store only filename in metadata, not full path
+            filename = Path(file_path).name
             return {
                 "success": True,
                 "chunks": chunks,
                 "metadata": {
-                    "source": file_path,
+                    "source": filename,
                     "source_type": Path(file_path).suffix.lower(),
                     "num_chunks": len(chunks)
                 }
             }
         except Exception as e:
             logger.error(f"Error in process_file for {file_path}: {str(e)}")
+            # Store only filename in metadata, not full path
             return {
                 "success": False,
                 "chunks": [],
                 "error": str(e),
-                "metadata": {"source": file_path}
+                "metadata": {"source": Path(file_path).name}
             }
     
     # batch processing for directories
