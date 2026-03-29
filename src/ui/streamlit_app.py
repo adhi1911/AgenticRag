@@ -264,7 +264,7 @@ class AgenticRAGApp:
                             f.write(file.getvalue())
 
                         # Ingest the file from persistent location
-                        result = self.orchestrator.route_request("ingest documents", files=[str(file_path)])
+                        result = self.orchestrator.route_request("ingest documents", files=[Path(file_path)])
 
                         if result["success"]:
                             processed += 1
