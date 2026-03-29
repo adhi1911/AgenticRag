@@ -1,0 +1,309 @@
+Video: Knowledge Graphs for Biodiversity Research
+URL: https://example.youtube.com/watch?v=sample_video_4
+Duration: 21 minutes 30 seconds
+Extracted Date: 2026-03-28
+Source: YouTube Research Talk
+
+=== TRANSCRIPT ===
+
+Good morning. I'm Dr. James Chen, biodiversity researcher at the Global Ecology Institute. Today I want to talk about how knowledge graphs are revolutionizing our field.
+
+For decades, biodiversity research has been siloed. Papers in journals, specimens in museums, field notes in notebooks. The knowledge exists but it's fragmented.
+
+A researcher studying rainforest ecology in the Amazon might not know about relevant research in Southeast Asian rainforests. A mycologist studying fungi-plant interactions in one region has no easy way to compare with patterns elsewhere. This is tragic inefficiency.
+
+Knowledge graphs change this completely.
+
+Let me start with a concrete example. Consider the interaction between the leaf-cutter ant, acacia trees, and fungi. This is a classic mutualistic system.
+
+Leaf-cutter ants (Atta species) cultivate fungal gardens. They cut leaves, not to eat directly, but to feed the fungus. The fungus is their real food source. The acacia tree hosts the ants in exchange for protection from other insects.
+
+This interaction pattern has been studied in Central and South America. But did you know similar patterns exist in Africa with totally different species? Or that there are modified versions in Southeast Asia?
+
+Without a knowledge graph, connecting these dots requires reading hundreds of papers manually.
+
+With a KG, we can query:
+"Show me all mutualistic relationships involving obligate fungal cultivation"
+
+And instantly get:
+- Leaf-cutter ants and ambrosia fungi
+- Bark beetles and fungal gardens
+- Weaver ants and scale insects (different system but analogous)
+
+This cross-pattern discovery drives innovation.
+
+Let's talk about the structure of a biodiversity knowledge graph.
+
+Entity types:
+- Species (taxonomically defined)
+- Habitats (regions, biomes, microhabitats)
+- Traits (morphological, behavioral, ecological)
+- Researchers/Institutions
+- Studies/Publications
+- Processes (predation, pollination, parasitism, etc)
+- Environmental variables (temperature, rainfall, pressure)
+
+Important relationships:
+- PREDATOR_PREY: Organism A hunts organism B
+- HABITAT_PREFERENCE: Organism prefers habitat type C
+- CO_OCCURS: Organisms found together (co-occurrence)
+- TRAIT_BASED: Species possesses trait
+- SYMBIOTIC: Symbiotic relationships (mutualism, commensalism)
+- TAXONOMIC: Evolutionary relationships
+- DESCRIBED_BY: Linking entities to publications
+
+Now here's a critical challenge unique to biodiversity: taxonomic uncertainty.
+
+Take the genus Quercus (oak trees). Over 400 species worldwide. But taxonomy evolves. A species recognized 50 years ago might be split into 3 species today. Or consolidated with another.
+
+In our KG, we need to handle this. We can't simply say "Query all oak species" - the answer depends on the taxonomic treatment.
+
+Our solution: temporal taxonomic framework.
+
+Each species representation has:
+- Current taxonomy (valid as of last update)
+- Historical taxonomies (for understanding old literature)
+- Synonymies (deprecated names, their relationships to current)
+- Uncertainty flags (if taxonomic status disputed)
+
+Example for the species "Quercus alba":
+```
+ENTITY: oak_qa_001
+COMMON_NAME: White oak
+SCIENTIFIC_NAME: Quercus alba L.
+AUTHORITY: Linnaeus, 1753
+TAXA_RANK: Species
+FAMILIA: Fagaceae
+GENUS: Quercus
+VALID_STATUS: accepted
+SYNONYMS: [Quercus alba var, obsolete names...]
+UPDATED: 2024-01-15
+CONFIDENCE: 0.98 (high taxonomic consensus)
+```
+
+A disputed species might look like:
+```
+ENTITY: frog_sp_002
+COMMON_NAME: Spotted tree frog (uncertain)
+SCIENTIFIC_NAME: Litoria spenceri (possibly)
+VALID_STATUS: disputed
+COMPETING_CONCEPTS: [Litoria caerulea subspecies, Litoria genimaculata...]
+CONFIDENCE: 0.45 (significant taxonomic debate)
+LAST_REVISION: 2023-06-10
+TAXONOMIC_NOTES: "Molecular genetics suggests distinct species, morphology suggests subspecies"
+```
+
+This allows us to faithfully represent the state of knowledge.
+
+Now, biodiversity research increasingly relies on traits. Traits connect organisms to environmental niches through functional mechanisms.
+
+If you know a fish's temperature tolerance and oxygen requirement, you can predict where it lives. If you know a plant's seed size and dispersal mechanism, you can predict habitat suitability.
+
+Common trait categories:
+- Morphological (body size, coloration, structure)
+- Physiological (metabolic rate, temperature tolerance)
+- Behavioral (feeding strategy, activity pattern)
+- Ecological (diet breadth, habitat generality)
+- Life history (generation time, fecundity)
+
+In our KG:
+```
+TRAIT: max_temperature_tolerance
+DESCRIPTION: "Maximum temperature an organism can survive"
+UNITS: "Celsius degrees"
+ORGANISM_RELEVANCE: ["Fish", "Amphibians", "Reptiles", "Invertebrates"]
+METHODOLOGY: "Standard critical thermal maximum test"
+DATA_QUALITY: 0.82
+EXAMPLES:
+  - (Rana temporaria, 24°C)
+  - (Bufo bufo, 28°C)
+```
+
+One of our most valuable queries uses traits:
+"Find organisms with high temperature tolerance and low moisture requirements that occur in arid regions"
+
+This helps identify biodiversity that might be resilient to climate change.
+
+Let's talk about temporal aspects. Biodiversity isn't static. Species ranges shift. Populations rise and fall. Interactions change.
+
+We encode temporal information:
+```
+RELATIONSHIP: Rana temporaria PREDATOR_PREY Musca domestica
+VALID_SINCE: 1970 (earliest observation in literature)
+VALID_TO: null (ongoing)
+CERTAINTY: 0.87
+SOURCE_PAPERS: [ref_001, ref_042, ref_103]
+GEOGRAPHIC_RANGE: "Europe, parts of Asia"
+AGE_CLASS_PREDATOR: "Tadpoles to adults"
+SEASON: "Spring to autumn (temperate zone)"
+CONFIDENCE_BY_REGION: {
+  "North Europe": 0.92,
+  "Central Europe": 0.88,
+  "Southern Europe": 0.71 (less studied)
+}
+```
+
+This temporal-spatial granularity is essential for conservation planning.
+
+Now, how do we build such a KG? Data comes from multiple sources:
+
+1. Primary scientific literature (60% of content)
+   - Method: NLP extraction from PDFs
+   - Challenge: High variability in reporting
+   - Accuracy: 0.73 on average
+
+2. Aggregated databases (20% of content)
+   - Sources: FishBase, Bird Life, WHO, GBIF
+   - Method: Direct integration with mapping to canonical entities
+   - Accuracy: 0.92
+
+3. Expert curation (15% of content)
+   - Method: Domain experts entering data directly
+   - Priority: Controversial relationships, novel findings
+   - Accuracy: 0.96
+
+4. Field studies (5% of content)
+   - Method: Research group submissions
+   - Focus: New observations, range expansions
+   - Accuracy: 0.88
+
+The extraction from literature is particularly challenging. Papers use inconsistent terminology.
+
+For example, predation frequency might be expressed as:
+- "Consumes X per day"
+- "Eats Y individuals per week"
+- "Predation rate of Z percent"
+- Narrative descriptions like "feeds extensively on..."
+
+We train NLP models to understand these variations.
+
+Example extraction:
+```
+PAPER: "Behavioral Ecology of Nile Perch"
+TEXT: "Nile perch consumed an average of 23 cichlid fish per individual per week..."
+EXTRACTED:
+  - Predator: Nile perch (Lates niloticus)
+  - Prey: cichlid (unspecified genus)
+  - Frequency: 23 individuals
+  - Time period: weekly
+  - Confidence: 0.85 (specific numbers increase confidence)
+```
+
+Less clear text:
+```
+TEXT: "The frogs were observed capturing small arthropods..."
+EXTRACTED:
+  - Predator: unspecified frog species
+  - Prey: arthropods (general category)
+  - Frequency: unknown
+  - Confidence: 0.42 (vague, affects downstream queries)
+```
+
+Our extraction pipeline achieves:
+- 0.78 precision on species identification
+- 0.71 recall on interaction extraction
+- 0.81 F1 on relationship type classification
+- 0.68 F1 overall (after combining components)
+
+Not perfect, but useful.
+
+The knowledge graph enables research that would be impossible otherwise.
+
+Example study: "How does taxonomic diversity predict ecosystem stability?"
+
+Query the KG:
+1. Get all habitats with species lists
+2. For each habitat, calculate species diversity metrics
+3. Link to environmental stability data
+4. Statistical analysis across 10,000+ habitats
+
+Result: Published research showing strong correlation between trait diversity and stability. This advances conservation policy.
+
+Another example: "Which temperate mammals are vulnerable to climate change?"
+
+Query steps:
+1. Filter mammals in temperate regions
+2. Check temperature tolerance traits
+3. Assess range size (specialists at risk)
+4. Identify current geographic range
+5. Project future suitable habitat with climate models
+6. Rank by vulnerability
+
+Output: Conservation priority list. Direct impact on funding allocation.
+
+For practitioners wanting to use biodiversity KGs, I'd recommend starting with two resources:
+
+1. Wikidata (general knowledge): 
+   - 60+ million entities
+   - Large biodiversity subset
+   - Good for taxa, traits, relationships
+   - Freely available
+
+2. Domain-specific KGs:
+   - FishBase (aquatic species)
+   - GlobalNames (organism names)
+   - Phenoscape (phenotypes)
+   - BioLink (integrated biological data)
+
+These can be integrated into a custom KG for specialized research.
+
+Building a custom KG requires:
+- Domain expertise (for validation)
+- Data engineering (for integration)
+- NLP/ML skills (for extraction)
+- Governance (for quality)
+
+Timeline estimates:
+- Paper extraction ontology design: 2-4 weeks
+- NLP model training: 4-8 weeks
+- Initial data population: 2-3 months
+- Quality assurance and refinement: 3-4 months
+- Production deployment: 1-2 months
+- Ongoing maintenance: ~1 FTE per 1 million entities
+
+Looking forward, the field is moving toward:
+
+1. Global knowledge graphs: Integrating biodiversity data worldwide
+   - Challenges: Language barriers, taxonomic variations
+   - Benefits: Truly comparative biology
+
+2. Temporal reasoning: Representing how biodiversity changes over time
+   - Important for understanding climate and human impacts
+
+3. Mechanistic inference: Using traits to predict interactions
+   - Could identify new food webs, ecological networks, etc.
+
+4. Integration with heterogeneous data:
+   - Genomics (DNA sequences, population genetics)
+   - Environmental monitoring (sensor networks, satellites)
+   - Photos and videos (image recognition)
+
+5. Uncertainty quantification:
+   - Not all facts are equally certain
+   - Must represent confidence for hypothesis generation
+
+The impact on conservation is profound. We can:
+- Identify extinction risks early
+- Design protected areas more effectively
+- Predict ecosystem consequences of interventions
+- Allocate research resources strategically
+
+Knowledge graphs are making biodiversity science more integrative, comparative, and predictive.
+
+Questions?
+
+=== END OF TRANSCRIPT ===
+
+Summary:
+- Focus: Knowledge graphs in biodiversity research
+- Key challenge: Taxonomic uncertainty and synonymy
+- Entity types: Species, habitats, traits, researchers, studies, processes
+- Relationship types: Predation, habitat preference, co-occurrence, mutualism, etc.
+- Data sources: Literature (60%), aggregated databases (20%), expert curation (15%), field studies (5%)
+- Extraction performance: 0.78 precision, 0.71 recall, 0.68 F1 overall
+- Database coverage: 10,000+ habitats and species networks
+- Domain resources: Wikidata, FishBase, GlobalNames, Phenoscape, BioLink
+- Timeline: ~11-16 weeks from design to maintenance
+- Advanced features: Temporal reasoning, trait-based inference, integration with genomics
+- Conservation applications: Risk assessment, protected area design, resource allocation
+- Estimated learning time: 20-22 minutes

@@ -1,0 +1,78 @@
+timestamp,operation,duration_ms,status,entities_processed,relations_extracted,avg_confidence
+2026-03-28 09:15:30,entity_extraction,1247,SUCCESS,142,89,0.78
+2026-03-28 09:16:15,relation_extraction,1834,SUCCESS,142,89,0.81
+2026-03-28 09:17:00,ontology_mapping,523,SUCCESS,134,N/A,0.94
+2026-03-28 09:17:45,graph_construction,445,SUCCESS,142,89,0.87
+
+2026-03-28 10:30:10,document_processing,1500,SUCCESS,567,234,0.76
+2026-03-28 10:31:45,relation_evaluation,5234,SUCCESS,500,N/A,0.79
+2026-03-28 10:37:20,validation,1023,SUCCESS,142,89,0.91
+
+2026-03-28 11:45:20,embedding_generation,32145,SUCCESS,245,N/A,N/A
+2026-03-28 12:17:55,vector_storage,2134,SUCCESS,245,N/A,N/A
+
+2026-03-28 14:20:30,retrieval_hybrid,345,SUCCESS,5,N/A,0.85
+2026-03-28 14:20:35,reranking,234,SUCCESS,5,N/A,0.89
+2026-03-28 14:20:40,response_generation,3456,SUCCESS,1,N/A,0.85
+
+2026-03-28 15:10:20,agent_iteration_1,5234,SUCCESS,6,N/A,0.71
+2026-03-28 15:10:45,query_reformulation,1234,SUCCESS,1,N/A,N/A
+2026-03-28 15:10:47,agent_iteration_2,4123,SUCCESS,7,N/A,0.79
+
+2026-03-28 09:00:00,daily_health_check,1200,SUCCESS,301,2156,0.87
+2026-03-28 10:00:00,hourly_cache_optimization,2345,SUCCESS,N/A,N/A,N/A
+2026-03-28 11:00:00,collection_stats_update,567,SUCCESS,2847,N/A,N/A
+
+System Performance Summary (2026-03-28):
+Total operations: 24
+Successful: 24 (100%)
+Failed: 0 (0%)
+Average operation time: 2145.3ms
+Median operation time: 1240.5ms
+Max operation time: 32145ms (embedding_generation)
+Min operation time: 234ms (reranking)
+
+Memory Usage:
+Peak memory: 3.2GB (during batch embedding)
+Avg memory: 1.8GB
+Low memory events: 1 (recovered)
+
+CPU Usage:
+Peak CPU: 94% (during entity extraction batch)
+Avg CPU: 62%
+
+Database Performance:
+Query count: 487
+Avg query time: 45ms
+Slow queries: 1 (optimized)
+Cache hit rate: 67.8%
+
+API Performance:
+Total requests: 487
+Successful: 458 (94%)
+Timeout: 22 (4.5%)
+Error: 7 (1.4%)
+Avg response time: 5.23s
+P95 response time: 8.45s
+P99 response time: 12.34s
+
+Agentic Agentic Behavior:
+Agentic queries: 45
+Single-pass answers: 42 (93.3%)
+Reformulations triggered: 3 (6.7%)
+Avg iterations per query: 1.07
+Avg confidence improvement: +0.089
+
+Top 5 Slowest Operations:
+1. Embedding generation: 32145ms (245 chunks)
+2. Batch document processing: 15342ms (25 docs)
+3. Relation extraction: 12456ms (large document)
+4. Response generation: 8234ms (complex query)
+5. Agent iteration 1: 5234ms (low confidence)
+
+Top 5 Highest Confidence Operations:
+1. Ontology mapping: 0.94
+2. Graph validation: 0.91
+3. Reranking: 0.89
+4. Health check: 0.87
+5. Graph construction: 0.87

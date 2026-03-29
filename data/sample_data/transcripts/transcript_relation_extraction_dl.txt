@@ -1,0 +1,207 @@
+Video: Relation Extraction Using Deep Learning - Complete Tutorial
+URL: https://example.youtube.com/watch?v=sample_video_2
+Duration: 22 minutes 15 seconds
+Extracted Date: 2026-03-28
+Source: YouTube Technical Tutorial
+
+=== TRANSCRIPT ===
+
+Welcome back to the NLP Deep Learning series. I'm your host, Alex Rodriguez, and today we're diving deep into relation extraction using deep learning techniques.
+
+Relation extraction is one of the most challenging and rewarding tasks in natural language processing. If you haven't watched our entity extraction tutorial, I'd recommend doing that first as it provides important context.
+
+So let's start with the fundamentals. What is relation extraction? Relation extraction is the task of identifying and classifying semantic relationships between entities in text. 
+
+Consider this example: "Apple CEO Tim Cook announced a new partnership with Samsung in Seoul."
+
+From this sentence, we can extract several relations:
+- (Apple, company, CEO, Tim Cook)
+- (Partnership, between, Apple, Samsung)
+- (Tim Cook, location, Seoul)
+
+Why is relation extraction important? Well, it's the foundation for many downstream tasks:
+- Building knowledge bases
+- Question answering systems
+- Information retrieval and search
+- Recommendation systems
+- Biomedical literature mining
+
+The traditional approach to relation extraction involved:
+1. Dependency parsing to understand sentence structure
+2. Feature engineering - manually designing features
+3. Machine learning classifiers like SVM or logistic regression
+
+This approach worked reasonably well, but had limitations. Features were labor-intensive to design, and the approach didn't generalize well across domains.
+
+Then came neural approaches. The first major breakthrough was using convolutional neural networks, or CNNs, for relation extraction.
+
+The typical architecture works like this:
+1. Convert words to embeddings (word vectors)
+2. Apply convolutional filters to capture local context
+3. Use max pooling to select the most important features
+4. Pass through fully connected layers for classification
+
+CNN-based models achieved significant improvements over traditional approaches, with F1 scores around 0.65 to 0.75 on standard datasets like SemEval-2010.
+
+But then came RNNs and LSTMs. These were even more effective because they could capture long-range dependencies, which is crucial for understanding relationships between distant entities.
+
+A typical LSTM-based architecture includes:
+- Word embedding layer
+- LSTM layers to process sequences
+- Attention mechanisms to focus on relevant parts
+- Classification layer for predicting relationship types
+
+With attention mechanisms, the model learns which parts of the sentence are most important for making the prediction. This is interpretable and often matches human intuition.
+
+The real game-changer came with transformer-based models like BERT. BERT uses a bidirectional encoder with multiple attention heads. This allows it to understand context from both directions simultaneously.
+
+For relation extraction with BERT, the approach is typically:
+1. Tokenize input text with special tokens
+2. Insert [CLS] tokens before and after the entity pair
+3. Fine-tune BERT on labeled relation extraction data
+4. Use the [CLS] token representations for classification
+
+Results are impressive. Fine-tuned BERT models achieve F1 scores of 0.78 to 0.89 depending on the dataset and relation types.
+
+One advanced technique is joint entity and relation extraction. Instead of extracting entities first, then finding relations, we do both simultaneously. This has several advantages:
+- More efficient
+- Can leverage shared representations
+- Often achieves better results
+
+Architecture-wise, you might have:
+- A shared BERT encoder
+- Entity extraction branch (token classification)
+- Relation extraction branch (sequence classification)
+- Combined loss function that weights both tasks
+
+Let me walk through a practical implementation. We'll use the popular Transformers library from Hugging Face.
+
+First, you'd load a pre-trained BERT model:
+```python
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
+
+model_name = "bert-base-uncased"
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+model = AutoModelForSequenceClassification.from_pretrained(
+    model_name, num_labels=num_relation_types
+)
+```
+
+Then prepare your data:
+```python
+def encode_relation_pair(text, entity1_start, entity1_end, entity2_start, entity2_end):
+    # Insert special tokens around entities
+    tokens = tokenizer.tokenize(text)
+    # Add [CLS] markers
+    # Truncate to max length
+    # Convert to token IDs
+    return token_ids, token_type_ids, attention_mask
+```
+
+Fine-tune on your relation data:
+```python
+from transformers import Trainer, TrainingArguments
+
+training_args = TrainingArguments(
+    output_dir="./results",
+    num_train_epochs=3,
+    per_device_train_batch_size=16,
+    learning_rate=2e-5,
+    warmup_steps=500,
+)
+
+trainer = Trainer(
+    model=model,
+    args=training_args,
+    train_dataset=train_dataset,
+    eval_dataset=eval_dataset,
+)
+
+trainer.train()
+```
+
+Now, let's talk about evaluation metrics. For relation extraction, we typically use:
+
+Precision: Of the relations we extracted, how many were correct?
+Recall: Of all the relations that should have been extracted, how many did we find?
+F1 Score: The harmonic mean of precision and recall
+
+For example, if you extract 100 relation pairs and 80 are correct, your precision is 0.8. If there are 120 total relations in the gold standard and you found 80 of them, your recall is 0.67, giving you an F1 of approximately 0.73.
+
+Different datasets have different characteristics. Let me discuss some important ones:
+
+SemEval-2010: Has 9 relation types. It's from the news domain. Baseline F1 was around 0.55. Modern BERT-based approaches achieve 0.88+.
+
+ACE 2003-2004: More challenging with 24 relation subtypes. Includes nested entities. SOTA is around 0.82 F1.
+
+DocRED: Large-scale dataset for document-level relation extraction. Has multi-hop reasoning requirements. Current SOTA is around 0.68 F1, leaving room for improvement.
+
+Now, what about domain-specific relation extraction? Let's focus on biodiversity since that's relevant to your work.
+
+In biodiversity literature, important relation types include:
+- HABITAT_PREFERENCE (which organisms prefer which habitats)
+- PREDATOR_PREY (hunting relationships)
+- CO_OCCURRENCE (organisms found together)
+- TAXONOMIC (taxonomic relationships)
+- SYMBIOTIC (symbiotic relationships)
+
+Challenges specific to biodiversity:
+- Scientific nomenclature (Latin names)
+- Implicit relationships (context-dependent)
+- Long sentences with multiple relationships
+- Specialized domain vocabulary
+
+A hybrid approach combining rule-based pattern matching with BERT often works best for such specialized domains.
+
+You might define patterns like:
+```
+PREDATOR_PREY if substring matches "preys on", "hunts", "feeds on"
+HABITAT if substring matches "inhabits", "lives in", "found in"
+```
+
+For low-confidence cases or unmatched patterns, fall back to BERT classification.
+
+Recent advances include:
+1. Graph neural networks for multi-hop relation extraction
+2. Prompt-based learning with large language models like GPT
+3. Few-shot learning for handling new relation types
+4. Uncertainty estimation to quantify confidence
+
+The field is moving rapidly. Models like GPT-3 and GPT-4 show promise for zero-shot relation extraction, though they may have lower performance than fine-tuned models.
+
+Common pitfalls to avoid:
+- Overfitting on small datasets
+- Class imbalance (some relations much more frequent)
+- Ignoring domain-specific patterns
+- Not evaluating on held-out test sets
+- Confusing precision with accuracy
+
+Best practices:
+- Start with a strong baseline
+- Use pre-trained models when possible
+- Analyze errors systematically
+- Consider domain-specific constraints
+- Iterate on your approach based on results
+
+For your work with biodiversity knowledge graphs, I'd recommend:
+1. Start with BERT fine-tuned on your data
+2. Add hand-crafted rules for high-confidence patterns
+3. Use ensemble methods combining multiple approaches
+4. Carefully annotate domain examples for evaluation
+
+That's a comprehensive overview of relation extraction using deep learning. The field has made remarkable progress, and the tools available are better than ever.
+
+In the next tutorial, we'll cover how to combine entity and relation extraction into a complete knowledge graph construction pipeline.
+
+Thanks for watching, and please subscribe for more NLP content.
+
+=== END OF TRANSCRIPT ===
+
+Summary:
+- Key topics: CNN, RNN, LSTM, Transformers, BERT, joint extraction, evaluation metrics
+- Techniques covered: embedding-based, CNN-based, RNN-based, transformer-based
+- Performance ranges: SemEval F1 0.55→0.88, ACE 0.82, DocRED 0.68
+- Domain focus: General NLP + biodiversity specialization
+- Practical aspects: Implementation with Hugging Face Transformers
+- Advanced topics: Graph neural networks, prompt learning, uncertainty estimation
+- Estimated learning time: 20-22 minutes

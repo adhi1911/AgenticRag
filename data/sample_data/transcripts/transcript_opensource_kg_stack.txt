@@ -1,0 +1,553 @@
+Video: Open Source Tools for Building Knowledge Graphs - Complete Stack 2024
+URL: https://example.youtube.com/watch?v=sample_video_5
+Duration: 24 minutes 0 seconds
+Extracted Date: 2026-03-28
+Source: YouTube Technical Deep Dive
+
+=== TRANSCRIPT ===
+
+Welcome back to the Knowledge Graph Mastery series. I'm your host, David Kumar. Today we're exploring the complete open source stack for building production knowledge graphs in 2024.
+
+Five years ago, building a knowledge graph meant writing a lot of custom code. Today, we have mature, battle-tested open source tools. Let's work through a complete end-to-end example.
+
+Our scenario: We're building a product knowledge graph for an e-commerce company. We need:
+- Product information (specs, pricing, categories)
+- Supplier information
+- Customer reviews and ratings
+- Product relationships (similar to, alternative, part of, etc)
+
+Let's start with the architecture:
+
+Layer 1: Data Integration
+Layer 2: Entity Recognition & Linking
+Layer 3: Storage
+Layer 4: Query & Retrieval
+Layer 5: Applications
+
+For Layer 1, data integration, we have several choices:
+
+Apache NiFi is a powerful data ingestion tool. It's visual, which helps non-engineers understand data pipelines.
+
+A basic flow might be:
+```
+GetFile → ParseJSON → ConvertRecord → PutDatabase
+```
+
+Advantages:
+- Visual flow design
+- Handles 100s of concurrent flows
+- Built-in error handling
+- Data lineage tracking
+
+Disadvantages:
+- Steep learning curve for complex scenarios
+- Resource intensive
+- Operational overhead
+
+Alternative: Apache Kafka for real-time data streaming.
+
+Kafka topics might be:
+- products (product updates from ERP)
+- suppliers (supplier data from sourcing system)
+- reviews (customer reviews from multiple channels)
+
+Producers push data to topics. Processors consume and transform. Consumers push to storage.
+
+The advantage: Decoupled systems, scalability, replay capability.
+
+For simpler scenarios, even Python with Pandas works:
+```python
+import pandas as pd
+from kafka import KafkaProducer
+
+df = pd.read_csv("products.csv")
+for idx, row in df.iterrows():
+    producer.send("products", row.to_dict())
+```
+
+For Layer 2, entity recognition and linking, the open source landscape is excellent.
+
+spaCy is my go-to tool for NLP. It's fast, accurate, and production-ready.
+
+A basic pipeline:
+```python
+import spacy
+from spacy.training import Example
+
+nlp = spacy.load("en_core_web_sm")
+
+# Add entity ruler for product entities
+ruler = nlp.add_pipe("entity_ruler", before="ner")
+patterns = [
+    {"label": "PRODUCT", "pattern": [{"LOWER": "iphone"}]},
+    {"label": "COMPANY", "pattern": [{"LOWER": "apple"}]}
+]
+ruler.add_patterns(patterns)
+
+doc = nlp("Apple launched iPhone 15 Pro")
+print([(ent.text, ent.label_) for ent in doc.ents])
+# Output: [("Apple", "COMPANY"), ("iPhone", "PRODUCT")]
+```
+
+spaCy also includes entity linking out of the box. It can link entities to Wikidata:
+```python
+from spacy.cli import download
+download("en_core_web_trf")
+nlp = spacy.load("en_core_web_trf")
+nlp.add_pipe("sentencizer")
+nlp.add_pipe("entity_linker", config={"model": "en_core_web_md"})
+
+doc = nlp("Apple manufactures iPhones.")
+for ent in doc.ents:
+    print(f"{ent.text} → {ent.kb_id_}")
+# Output shows Wikidata IDs
+```
+
+For relation extraction, Hugging Face transformers is the standard.
+
+Pre-trained models for relation extraction:
+```python
+from transformers import pipeline
+
+classifier = pipeline("zero-shot-classification",
+    model="facebook/bart-large-mnli")
+
+text = "Apple supplies iPhones to retailers"
+candidate_labels = ["supplier_of", "competitor_of", "manufacturer_of"]
+
+result = classifier(text, candidate_labels)
+print(result)
+# Returns confidence scores for each relation
+```
+
+Or fine-tune a model on your data:
+```python
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
+from torch.utils.data import DataLoader
+from transformers import Trainer, TrainingArguments
+
+model_name = "distilbert-base-uncased"
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+model = AutoModelForSequenceClassification.from_pretrained(
+    model_name, num_labels=num_relations)
+
+training_args = TrainingArguments(
+    output_dir="./kg_relation_model",
+    num_train_epochs=3,
+    per_device_train_batch_size=16,
+    learning_rate=2e-5,
+)
+
+trainer = Trainer(model=model, args=training_args,
+    train_dataset=train_dataset, eval_dataset=eval_dataset)
+trainer.train()
+```
+
+Entity linking is critical and hard. Two approaches:
+
+Approach 1: String matching with candidates
+```python
+from fuzzywuzzy import fuzz
+
+entities = {"Apple Inc", "iPhone 15 Pro", "Samsung Galaxy S24"}
+query = "Appel Inc"
+
+matches = [(e, fuzz.ratio(query, e)) for e in entities]
+matches.sort(key=lambda x: x[1], reverse=True)
+print(matches[0])  # ("Apple Inc", 96)
+```
+
+Approach 2: Semantic similarity with embeddings
+```python
+from sentence_transformers import SentenceTransformer, util
+
+model = SentenceTransformer('all-MiniLM-L6-v2')
+
+entities = ["Apple Inc", "Apple Inc.", "Apple Computer Company"]
+query_embedding = model.encode("Apple Inc", convert_to_tensor=True)
+
+for entity in entities:
+    entity_embedding = model.encode(entity, convert_to_tensor=True)
+    similarity = util.pytorch_cos_sim(query_embedding, entity_embedding)
+    print(f"{entity}: {similarity.item():.3f}")
+```
+
+Output on a typical run:
+- "Apple Inc": 1.000
+- "Apple Inc.": 0.998
+- "Apple Computer Company": 0.945
+
+Good, but not perfect for variant names.
+
+Hybrid approach:
+```python
+def entity_linker(query, candidates, threshold=0.85):
+    # Try exact match
+    if query in candidates:
+        return query
+    
+    # Try fuzzy match
+    fuzzy_matches = [(c, fuzz.ratio(query, c)/100) 
+                     for c in candidates]
+    if fuzzy_matches[0][1] > 0.95:
+        return fuzzy_matches[0][0]
+    
+    # Try semantic
+    embeddings = model.encode([query] + candidates)
+    similarities = [
+        util.pytorch_cos_sim(embeddings[0], embeddings[i+1])
+        for i in range(len(candidates))
+    ]
+    best_idx = similarities.index(max(similarities))
+    
+    if similarities[best_idx] > threshold:
+        return candidates[best_idx]
+    
+    return None  # No match found
+```
+
+Now Layer 3: Storage
+
+For graph storage, Neo4j is the market leader in open source.
+
+Installation via Docker:
+```bash
+docker run -d \
+  --name neo4j \
+  -p 7474:7474 \
+  -p 7687:7687 \
+  neo4j:5.15
+```
+
+Creating a knowledge graph:
+```python
+from neo4j import GraphDatabase
+
+driver = GraphDatabase.driver("bolt://localhost:7687",
+    auth=("neo4j", "password"))
+
+def create_product_kg(tx, products, suppliers, relations):
+    # Create product nodes
+    for product in products:
+        tx.run("""
+            CREATE (p:Product {
+                id: $id,
+                name: $name,
+                price: $price,
+                category: $category
+            })
+        """, id=product['id'], name=product['name'],
+            price=product['price'], category=product['category'])
+    
+    # Create supplier nodes
+    for supplier in suppliers:
+        tx.run("""
+            CREATE (s:Supplier {
+                id: $id,
+                name: $name,
+                country: $country
+            })
+        """, id=supplier['id'], name=supplier['name'],
+            country=supplier['country'])
+    
+    # Create relationships
+    for relation in relations:
+        tx.run("""
+            MATCH (s:Supplier {id: $supplier_id})
+            MATCH (p:Product {id: $product_id})
+            CREATE (s)-[r:SUPPLIES {since: $since}]->(p)
+        """, supplier_id=relation['supplier'],
+            product_id=relation['product'],
+            since=relation['since'])
+
+with driver.session() as session:
+    session.execute_write(create_product_kg,
+        products, suppliers, relations)
+```
+
+Alternative: RDF triple stores for semantic web applications.
+
+Apache Jena or SPARQL endpoints:
+```python
+from rdflib import Graph, Namespace, Literal, URIRef
+
+g = Graph()
+EX = Namespace("http://example.org/")
+SCHEMA = Namespace("http://schema.org/")
+
+# Add triples
+g.add((EX.apple_inc, RDF.type, SCHEMA.Company))
+g.add((EX.apple_inc, SCHEMA.name, Literal("Apple Inc")))
+g.add((EX.iphone15, SCHEMA.manufacturer, EX.apple_inc))
+
+# Query
+results = g.query("""
+    SELECT ?product WHERE {
+        ?product schema:manufacturer ?manufacturer .
+        ?manufacturer schema:name "Apple Inc"
+    }
+""")
+
+for row in results:
+    print(row.product)
+```
+
+For simpler cases, PostgreSQL with JSON columns works fine:
+```sql
+CREATE TABLE entities (
+    id SERIAL PRIMARY KEY,
+    type VARCHAR(50),
+    properties JSONB
+);
+
+INSERT INTO entities (type, properties) VALUES
+('Product', '{"name": "iPhone 15", "price": 999}'),
+('Company', '{"name": "Apple Inc", "country": "USA"}');
+
+CREATE TABLE relationships (
+    source_id INT,
+    target_id INT,
+    rel_type VARCHAR(50),
+    properties JSONB
+);
+
+SELECT e1.properties->>'name', r.rel_type, e2.properties->>'name'
+FROM relationships r
+JOIN entities e1 ON r.source_id = e1.id
+JOIN entities e2 ON r.target_id = e2.id;
+```
+
+Comparison:
+- Neo4j: Best for heavy graph traversal, complex queries
+- RDF stores: Best for semantic reasoning, linked data
+- PostgreSQL: Best for simplicity, existing infrastructure
+
+For our scenario, I'd choose Neo4j for its query performance on product relationships.
+
+Layer 4: Query & Retrieval
+
+Neo4j Cypher query language:
+```cypher
+// Find products supplied by Apple
+MATCH (s:Supplier {name: "Apple Inc"})
+       -[:SUPPLIES]->(p:Product)
+RETURN p.name, p.category ORDER BY p.price DESC
+
+// Find alternatives (products with same category)
+MATCH (p1:Product {name: "iPhone 15"})-[:IN_CATEGORY]->(c:Category)
+      <-[:IN_CATEGORY]-(p2:Product)
+WHERE p1 <> p2
+RETURN p2.name, p2.price
+
+// Graph traversal (find suppliers of suppliers)
+MATCH (s1:Supplier)-[:SUPPLIES]->(p:Product)
+      <-[:MANUFACTURED_BY]-(material:Material)
+      -[:SUPPLIED_BY]->(s2:Supplier)
+RETURN DISTINCT s2.name
+```
+
+Python client:
+```python
+def find_product_alternatives(driver, product_name):
+    with driver.session() as session:
+        result = session.run("""
+            MATCH (p1:Product {name: $name})
+                  -[:IN_CATEGORY]->(c:Category)
+                  <-[:IN_CATEGORY]-(p2:Product)
+            WHERE p1 <> p2
+            RETURN p2.name, p2.price, p2.rating
+            ORDER BY p2.rating DESC
+            LIMIT 10
+        """, name=product_name)
+        return [dict(record) for record in result]
+
+alternatives = find_product_alternatives(driver, "iPhone 15")
+```
+
+Query performance optimization:
+```cypher
+// Add indexes for frequent queries
+CREATE INDEX ON :Product(name)
+CREATE INDEX ON :Supplier(country)
+CREATE INDEX ON :Product(category)
+```
+
+For semantic search (finding similar products by meaning):
+```python
+from sentence_transformers import SentenceTransformer, util
+
+model = SentenceTransformer('all-MiniLM-L6-v2')
+
+# Embed product descriptions
+products = get_all_products()
+embeddings = model.encode([p['description'] for p in products])
+
+# Find similar to query
+query = "wireless earbuds with noise cancellation"
+query_embedding = model.encode(query)
+
+similarities = util.pytorch_cos_sim(query_embedding, embeddings)[0]
+top_results = similarities.topk(k=5)
+
+for score, idx in zip(top_results[0], top_results[1]):
+    print(f"{products[idx]['name']}: {score:.3f}")
+```
+
+Layer 5: Applications
+
+Streamlit for rapid UI development:
+```python
+import streamlit as st
+from neo4j import GraphDatabase
+
+driver = GraphDatabase.driver(...)
+
+st.title("Product Knowledge Graph")
+
+search_term = st.text_input("Search for a product")
+
+if search_term:
+    with driver.session() as session:
+        results = session.run("""
+            MATCH (p:Product)
+            WHERE p.name =~ $pattern
+            RETURN p.name, p.category, p.price
+            LIMIT 20
+        """, pattern=f"(?i).*{search_term}.*")
+        
+        df = pd.DataFrame([dict(r) for r in results])
+        st.dataframe(df)
+
+        selected = st.selectbox("Choose a product", df['name'].tolist())
+        if selected:
+            suppliers = session.run("""
+                MATCH (s:Supplier)-[:SUPPLIES]->(p:Product)
+                WHERE p.name = $name
+                RETURN s.name, s.country
+            """, name=selected)
+            
+            st.subheader("Suppliers")
+            st.table(suppliers)
+```
+
+Complete pipeline with Airflow orchestration:
+```python
+from airflow import DAG
+from airflow.operators.python import PythonOperator
+from datetime import datetime, timedelta
+
+default_args = {
+    'owner': 'kg_team',
+    'start_date': datetime(2024, 1, 1),
+    'retries': 2,
+    'retry_delay': timedelta(minutes=5),
+}
+
+dag = DAG('kg-build-pipeline', default_args=default_args,
+          schedule_interval='0 2 * * *')  # Daily at 2 AM
+
+def ingest_products():
+    # Fetch from data source
+    pass
+
+def extract_entities():
+    # Run NLP extraction
+    pass
+
+def link_entities():
+    # Entity disambiguation
+    pass
+
+def load_to_graph():
+    # Store in Neo4j
+    pass
+
+task1 = PythonOperator(task_id='ingest', python_callable=ingest_products, dag=dag)
+task2 = PythonOperator(task_id='extract', python_callable=extract_entities, dag=dag)
+task3 = PythonOperator(task_id='link', python_callable=link_entities, dag=dag)
+task4 = PythonOperator(task_id='load', python_callable=load_to_graph, dag=dag)
+
+task1 >> task2 >> task3 >> task4
+```
+
+Monitoring and quality assurance:
+```python
+def validate_kg_quality():
+    with driver.session() as session:
+        # Check data completeness
+        result = session.run("""
+            MATCH (p:Product)
+            RETURN COUNT(*) as total,
+                   COUNT(p.price) as with_price,
+                   COUNT(p.category) as with_category
+        """)
+        
+        row = result.single()
+        completeness = (row['with_price'] + row['with_category']) / (row['total'] * 2)
+        
+        if completeness < 0.85:
+            alert("Low data completeness")
+        
+        return completeness
+
+# Check for orphaned entities
+orphaned = session.run("""
+    MATCH (n)
+    WHERE NOT (n)--()
+    RETURN labels(n) as type, COUNT(*) as count
+""")
+
+for row in orphaned:
+    if row['count'] > threshold:
+        log_issue(f"Found {row['count']} orphaned {row['type']} entities")
+```
+
+So to summarize the complete stack:
+
+Data Integration: Kafka + Pandas
+Entity Recognition: spaCy + Transformers
+Relation Extraction: Transformers + custom rules
+Entity Linking: Sentence Transformers + fuzzy matching
+Storage: Neo4j
+Querying: Cypher + Python driver
+Semantic Search: Sentence Transformers
+UI: Streamlit
+Orchestration: Airflow
+Monitoring: Custom quality checks
+
+Total cost: $0 for licenses. You only pay for compute resources.
+
+Resources I'd recommend:
+- spaCy documentation and models
+- Hugging Face Model Hub for transformer models
+- Neo4j developers guide and community resources
+- Sentence Transformers documentation
+
+Timeline for implementation:
+- Week 1-2: Data pipeline setup (Kafka/ETL)
+- Week 2-3: NLP model training
+- Week 3-4: Entity linking system
+- Week 4-5: Neo4j schema design and loading
+- Week 5-6: Query layer and testing
+- Week 6-7: UI development
+- Week 7-8: Monitoring and optimization
+
+That's the complete open source knowledge graph stack for 2024. Questions?
+
+=== END OF TRANSCRIPT ===
+
+Summary:
+- Architecture layers: Integration → NER/Linking → Storage → Query → Applications
+- Integration tools: Apache NiFi, Kafka, Pandas
+- NER/NLP: spaCy (0.78-0.80 accuracy), Transformers (state-of-the-art), custom rules
+- Relation extraction: Fine-tuned transformers (distilbert), zero-shot classifiers
+- Entity linking: Fuzzy matching (95%+ similarity), semantic embeddings (transformers), hybrid approach
+- Storage options: Neo4j (best for traversal), RDF stores (semantic), PostgreSQL (simple)
+- Query language: Cypher for Neo4j (highly optimized), SPARQL for RDF, SQL for PostgreSQL
+- Semantic search: Sentence Transformers (all-MiniLM-L6-v2, 384-dim)
+- UI framework: Streamlit (~50 lines for basic app)
+- Orchestration: Apache Airflow (daily pipelines, monitoring)
+- Quality metrics: 85%+ completeness target, orphaned entity detection
+- Timeline: 7-8 weeks from design to production
+- Cost: Open source (only compute)
+- Estimated learning time: 22-24 minutes

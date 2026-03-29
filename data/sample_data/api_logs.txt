@@ -1,0 +1,55 @@
+2026-03-28 08:00:01,123 - api_gateway - INFO - API Server started on 0.0.0.0:8000
+2026-03-28 08:00:02,456 - database - INFO - Connecting to PostgreSQL database...
+2026-03-28 08:00:03,789 - database - INFO - Connection pool initialized with 20 connections
+2026-03-28 08:00:05,012 - api_gateway - INFO - Loading API routes and middleware
+2026-03-28 08:00:06,345 - api_gateway - INFO - Health check endpoint: /api/health
+2026-03-28 08:00:07,678 - api_gateway - INFO - RAG endpoints loaded: /api/rag/query, /api/rag/search, /api/rag/ingest
+
+2026-03-28 09:15:22,890 - request_logger - INFO - POST /api/rag/query - user_id=user_12345 - status=200
+2026-03-28 09:15:23,123 - request_logger - INFO - Query time: 5.234s - Confidence: 0.856 - Sources: 4
+2026-03-28 09:16:45,456 - request_logger - INFO - POST /api/rag/query - user_id=user_12345 - status=200
+2026-03-28 09:16:46,789 - request_logger - INFO - Query time: 3.128s - Confidence: 0.912 - Sources: 5
+2026-03-28 09:17:33,012 - request_logger - INFO - POST /api/rag/search - user_id=user_67890 - status=200
+2026-03-28 09:17:34,345 - semantic_search - INFO - Retrieved 15 documents with average relevance: 0.78
+2026-03-28 09:18:10,678 - request_logger - INFO - POST /api/rag/ingest - user_id=admin - status=202
+2026-03-28 09:18:12,123 - document_processor - INFO - Ingesting: Hybrid_Rule_Based_RE.pdf (File size: 2.4MB)
+
+2026-03-28 10:05:44,567 - request_logger - WARNING - POST /api/rag/query - user_id=user_11111 - status=400
+2026-03-28 10:05:45,890 - request_logger - WARNING - Error: Invalid query format. Expected JSON with 'query' field
+2026-03-28 10:06:12,123 - request_logger - INFO - POST /api/rag/query - user_id=user_11111 - status=200
+2026-03-28 10:06:13,456 - request_logger - INFO - Query time: 4.567s - Confidence: 0.789 - Sources: 3
+
+2026-03-28 11:22:33,890 - request_logger - INFO - GET /api/health - status=200
+2026-03-28 11:22:34,123 - health_check - INFO - System healthy. Response time: 12ms
+2026-03-28 11:22:35,456 - request_logger - INFO - POST /api/rag/query - user_id=user_54321 - status=200
+2026-03-28 11:22:36,789 - request_logger - INFO - Query time: 6.342s - Confidence: 0.723 - Sources: 4
+
+2026-03-28 12:45:10,123 - request_logger - ERROR - POST /api/rag/query - user_id=user_99999 - status=500
+2026-03-28 12:45:11,456 - request_logger - ERROR - Internal server error: LLM API timeout after 30 seconds
+2026-03-28 12:45:12,789 - error_recovery - INFO - Retrying request with fallback model...
+2026-03-28 12:45:18,012 - error_recovery - INFO - Fallback model succeeded. Confidence: 0.654
+
+2026-03-28 14:30:22,345 - request_logger - INFO - POST /api/batch/process - user_id=admin - status=202
+2026-03-28 14:30:23,678 - batch_processor - INFO - Processing batch of 25 documents
+2026-03-28 14:30:45,234 - batch_processor - INFO - Batch processing complete. 25 documents processed successfully
+2026-03-28 14:30:46,567 - batch_processor - INFO - Avg time per document: 0.87 seconds
+
+2026-03-28 15:15:50,890 - request_logger - INFO - POST /api/rag/query - user_id=user_12345 - status=200 (agentic_mode)
+2026-03-28 15:15:52,123 - agentic_agent - INFO - Query reformulation triggered. Confidence: 0.62 < threshold: 0.75
+2026-03-28 15:15:53,456 - agentic_agent - INFO - New query: "relation extraction performance metrics comparison"
+2026-03-28 15:15:58,789 - agentic_agent - INFO - Agentic reasoning complete. Iterations: 2, Final confidence: 0.81
+
+2026-03-28 16:40:12,123 - request_logger - ERROR - POST /api/rag/ingest - user_id=user_22222 - status=413
+2026-03-28 16:40:13,456 - request_logger - ERROR - Payload too large. Max file size: 10MB
+2026-03-28 16:41:05,789 - request_logger - INFO - POST /api/rag/ingest - user_id=user_22222 - status=202
+2026-03-28 16:41:07,123 - document_processor - INFO - File split into 2 chunks for processing
+
+2026-03-28 17:55:33,456 - request_logger - INFO - Rate limit check - user_id=user_12345 - Requests: 145/500 (daily limit)
+2026-03-28 17:55:34,789 - request_logger - INFO - POST /api/rag/query - user_id=user_12345 - status=200
+2026-03-28 17:55:36,123 - request_logger - INFO - Query time: 5.121s - Confidence: 0.867 - Sources: 5
+
+2026-03-28 18:30:00,456 - monitoring - INFO - Daily statistics compiled
+2026-03-28 18:30:01,789 - monitoring - INFO - Total requests: 487, Successful: 458, Failed: 7, Timeout: 22
+2026-03-28 18:30:03,123 - monitoring - INFO - Avg response time: 5.23 seconds
+2026-03-28 18:30:04,456 - monitoring - INFO - Cache hit rate: 67.8%
+2026-03-28 18:30:05,789 - monitoring - INFO - Active users: 23, Peak concurrent: 8

@@ -1,0 +1,100 @@
+2026-03-28 09:15:32,451 - knowledge_graph_processor - INFO - Starting KG construction pipeline for biodiversity dataset
+2026-03-28 09:15:33,102 - entity_extractor - INFO - Initialized EntityExtractor with BERT-base-uncased model
+2026-03-28 09:15:45,234 - entity_extractor - INFO - Processing document: "Automated_Construction_of_Theme_Specific_KG_for_Biodiversity.pdf"
+2026-03-28 09:15:47,567 - entity_extractor - INFO - Detected 142 entities in document
+2026-03-28 09:15:48,123 - entity_extractor - DEBUG - Entity types: ORGANISM (67), LOCATION (32), HABITAT (23), TRAIT (20)
+2026-03-28 09:15:50,456 - relation_extractor - INFO - Starting relation extraction for 142 entities
+2026-03-28 09:15:52,789 - relation_extractor - INFO - Using hybrid rule-based and transformer-based approach
+2026-03-28 09:15:55,012 - relation_extractor - INFO - Extracted 89 relations from document
+2026-03-28 09:15:56,345 - relation_extractor - DEBUG - Relation types: HABITAT_PREFERENCE (34), PREDATOR_PREY (28), CO_OCCURRENCE (15), TAXONOMIC (12)
+2026-03-28 09:15:58,678 - relation_extractor - INFO - Average confidence score for extracted relations: 0.78
+2026-03-28 09:16:01,234 - ontology_mapper - INFO - Mapping entities to biodiversity ontology
+2026-03-28 09:16:03,567 - ontology_mapper - INFO - Matched 134 of 142 entities to ontology concepts (94.4% coverage)
+2026-03-28 09:16:05,890 - ontology_mapper - WARNING - 8 entities could not be mapped to ontology. Adding as new concepts.
+2026-03-28 09:16:07,123 - knowledge_graph_builder - INFO - Building RDF graph with extracted entities and relations
+2026-03-28 09:16:09,456 - knowledge_graph_builder - INFO - Created 142 RDF triples
+2026-03-28 09:16:11,789 - knowledge_graph_validator - INFO - Starting KG validation
+2026-03-28 09:16:14,012 - knowledge_graph_validator - INFO - Validation results: Completeness=0.89, Accuracy=0.85, Consistency=0.92
+2026-03-28 09:16:16,345 - knowledge_graph_validator - WARNING - Found 3 inconsistencies: circular taxonomic relationships detected
+2026-03-28 09:16:18,678 - knowledge_graph_validator - INFO - Resolving inconsistencies...
+2026-03-28 09:16:20,234 - knowledge_graph_validator - INFO - KG validation complete. Status: VALID with minor warnings
+2026-03-28 09:16:22,567 - graph_storage - INFO - Storing KG in Neo4j database
+2026-03-28 09:16:24,890 - graph_storage - INFO - Successfully stored 142 nodes and 89 edges
+2026-03-28 09:16:27,123 - knowledge_graph_processor - INFO - KG construction pipeline completed successfully
+2026-03-28 09:16:28,456 - knowledge_graph_processor - INFO - Total execution time: 96.5 seconds
+2026-03-28 09:16:30,789 - knowledge_graph_processor - INFO - Processing next document...
+
+2026-03-28 10:30:15,234 - relation_extraction_evaluator - INFO - Starting F1 score evaluation for test set
+2026-03-28 10:30:17,567 - relation_extraction_evaluator - INFO - Test set contains 500 manually annotated relation pairs
+2026-03-28 10:30:19,890 - relation_extraction_evaluator - INFO - Running rule-based baseline model
+2026-03-28 10:30:45,123 - relation_extraction_evaluator - INFO - Rule-based baseline F1 score: 0.642
+2026-03-28 10:30:46,456 - relation_extraction_evaluator - INFO - Rule-based Precision: 0.685, Recall: 0.602
+2026-03-28 10:30:47,789 - relation_extraction_evaluator - INFO - Running transformer-based model (BERT-RE)
+2026-03-28 10:31:23,012 - relation_extraction_evaluator - INFO - BERT-based model F1 score: 0.789
+2026-03-28 10:31:24,345 - relation_extraction_evaluator - INFO - BERT Precision: 0.812, Recall: 0.768
+2026-03-28 10:31:25,678 - relation_extraction_evaluator - INFO - Running hybrid approach (rule-based + transformer)
+2026-03-28 10:32:01,890 - relation_extraction_evaluator - INFO - Hybrid model F1 score: 0.823
+2026-03-28 10:32:03,123 - relation_extraction_evaluator - INFO - Hybrid Precision: 0.856, Recall: 0.793
+2026-03-28 10:32:04,456 - relation_extraction_evaluator - INFO - Performance improvement over baseline: +28.1% F1 score
+2026-03-28 10:32:05,789 - relation_extraction_evaluator - INFO - Detailed evaluation report saved to: /results/evaluation_report_20260328.json
+2026-03-28 10:32:07,123 - relation_extraction_evaluator - INFO - Evaluation complete. Execution time: 1 minute 52 seconds
+
+2026-03-28 11:45:22,567 - embedding_service - INFO - Initializing embedding service with sentence-transformers/all-MiniLM-L6-v2
+2026-03-28 11:45:35,890 - embedding_service - INFO - Model loaded successfully. Embedding dimension: 384
+2026-03-28 11:45:37,123 - embedding_service - INFO - Processing document batch: 50 documents
+2026-03-28 11:45:38,456 - embedding_service - INFO - Chunking documents with chunk_size=1000, overlap=200
+2026-03-28 11:45:42,789 - embedding_service - INFO - Created 245 chunks from 50 documents
+2026-03-28 11:45:43,012 - embedding_service - INFO - Generating embeddings for 245 chunks
+2026-03-28 11:46:15,234 - embedding_service - INFO - Embedding generation complete. Time: 32.2 seconds
+2026-03-28 11:46:16,567 - embedding_service - INFO - Storing embeddings in ChromaDB
+2026-03-28 11:46:18,890 - embedding_service - INFO - Successfully stored 245 embeddings in collection: rag_knowledge_base
+2026-03-28 11:46:20,123 - embedding_service - INFO - Batch processing complete. Total documents: 50, Total chunks: 245
+2026-03-28 11:46:21,456 - embedding_service - INFO - Collection statistics: Total embeddings: 2847, Average chunk relevance: 0.76
+
+2026-03-28 14:20:33,890 - retrieval_engine - INFO - Query received: "What are the main challenges in relation extraction from scientific literature?"
+2026-03-28 14:20:34,123 - retrieval_engine - INFO - Query embedding generated. Performing hybrid retrieval...
+2026-03-28 14:20:35,456 - dense_retriever - INFO - Dense retrieval (embedding search) returned 15 candidates
+2026-03-28 14:20:36,789 - sparse_retriever - INFO - Sparse retrieval (BM25) returned 8 candidates
+2026-03-28 14:20:38,012 - reranker - INFO - Reranking 15 dense + 8 sparse = 23 candidates
+2026-03-28 14:20:40,345 - reranker - INFO - Cross-encoder reranking complete. Top-5 documents selected.
+2026-03-28 14:20:41,678 - retrieval_engine - INFO - Top-1 document score: 0.892 (Hybrid_Rule_Based_Transformer_Approach.pdf)
+2026-03-28 14:20:42,234 - retrieval_engine - INFO - Top-2 document score: 0.856 (Accurate_Uncertainties_for_DL.pdf)
+2026-03-28 14:20:42,890 - retrieval_engine - INFO - Top-3 document score: 0.823 (Automated_Construction_KG.pdf)
+2026-03-28 14:20:44,123 - llm_engine - INFO - Generating response with context from 5 retrieved documents
+2026-03-28 14:20:45,456 - llm_engine - INFO - Using model: llama-3.1-8b-instant
+2026-03-28 14:20:48,789 - llm_engine - INFO - Response generated. Length: 1247 characters
+2026-03-28 14:20:50,012 - retrieval_engine - INFO - Query execution complete. Total time: 16.1 seconds
+2026-03-28 14:20:51,345 - retrieval_engine - INFO - Confidence score: 0.847
+
+2026-03-28 15:10:22,567 - agent_reasoning - INFO - Agentic RAG initialized with max_iterations=3
+2026-03-28 15:10:23,890 - agent_reasoning - INFO - Query: "Compare and contrast rule-based and transformer-based approaches for relation extraction"
+2026-03-28 15:10:25,123 - agent_reasoning - INFO - [Iteration 1] THINK: Query type is comparative/analytical
+2026-03-28 15:10:26,456 - agent_reasoning - INFO - [Iteration 1] ACT: Retrieving relevant documents...
+2026-03-28 15:10:32,789 - agent_reasoning - INFO - [Iteration 1] Retrieved 6 relevant documents
+2026-03-28 15:10:34,012 - agent_reasoning - INFO - [Iteration 1] OBSERVE: Confidence=0.712, Retrieving additional context...
+2026-03-28 15:10:35,345 - agent_reasoning - INFO - [Iteration 1] DECIDE: Confidence below threshold, reformulating query
+2026-03-28 15:10:37,678 - agent_reasoning - INFO - [Iteration 2] Reformulated query: "rule-based vs transformer relation extraction performance metrics"
+2026-03-28 15:10:39,123 - agent_reasoning - INFO - [Iteration 2] ACT: Retrieving with reformulated query...
+2026-03-28 15:10:45,456 - agent_reasoning - INFO - [Iteration 2] Retrieved 7 relevant documents (1 new)
+2026-03-28 15:10:47,789 - agent_reasoning - INFO - [Iteration 2] OBSERVE: Confidence=0.791
+2026-03-28 15:10:49,012 - agent_reasoning - INFO - [Iteration 2] DECIDE: Confidence improved, finalizing answer
+2026-03-28 15:10:50,345 - agent_reasoning - INFO - Agentic reasoning complete. Total iterations: 2, reformulations: 1
+2026-03-28 15:10:51,678 - agent_reasoning - INFO - Final answer confidence: 0.791
+
+2026-03-28 16:45:33,234 - error_handler - ERROR - Exception in entity extraction pipeline
+2026-03-28 16:45:34,567 - error_handler - ERROR - DocumentProcessingError: Failed to extract entities from PDF
+2026-03-28 16:45:35,890 - error_handler - ERROR - File: problematic_paper.pdf, Line: 127
+2026-03-28 16:45:37,123 - error_handler - ERROR - Cause: Unrecognized character encoding in table format
+2026-03-28 16:45:38,456 - error_handler - INFO - Attempting recovery with alternative encoding: utf-8
+2026-03-28 16:45:40,789 - error_handler - INFO - Recovery successful. Continuing pipeline...
+
+2026-03-28 17:22:45,012 - system_health - INFO - Daily health check started
+2026-03-28 17:22:46,345 - system_health - INFO - Knowledge graph database: HEALTHY (Response time: 45ms)
+2026-03-28 17:22:47,678 - system_health - INFO - ChromaDB (Vector store): HEALTHY (Response time: 23ms)
+2026-03-28 17:22:49,123 - system_health - INFO - LLM API (Groq): HEALTHY (Response time: 234ms)
+2026-03-28 17:22:50,456 - system_health - INFO - Embedding service: HEALTHY (Batch processing: 50 docs/min)
+2026-03-28 17:22:51,789 - system_health - INFO - Retrieval engine: HEALTHY (Avg query time: 15.3 seconds)
+2026-03-28 17:22:53,012 - system_health - INFO - Overall system status: OPERATIONAL
+2026-03-28 17:22:54,345 - system_health - INFO - Active documents: 301, Total embeddings: 2847
+2026-03-28 17:22:55,678 - system_health - INFO - Cache hit rate: 68.4%
+2026-03-28 17:22:57,234 - system_health - INFO - Health check complete. Next check: 2026-03-29 17:22:57

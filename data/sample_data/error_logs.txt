@@ -1,0 +1,73 @@
+2026-03-28 09:45:12,567 [ERROR] EntityExtractionError: Failed to extract entities from document
+2026-03-28 09:45:12,567 File: relation_extraction_biodiversity.pdf
+2026-03-28 09:45:12,567 Error: PDFDecryptionError - Document is password protected
+2026-03-28 09:45:12,567 Stack trace:
+  File "src/ingestion/pdf_processor.py", line 45, in extract_text
+    text = pdfReader.getPage(0).extractText()
+  File "PyPDF2/pdf_reader.py", line 234, in extractText
+    raise PDFReadError("Could not decrypt document")
+2026-03-28 09:45:13,890 [INFO] Recovered: Processing with fallback OCR engine
+2026-03-28 09:45:45,234 [INFO] OCR processing complete. Extracted 1247 words, 89 entities
+
+2026-03-28 10:23:33,456 [WARNING] Low Confidence Alert
+2026-03-28 10:23:33,456 Query: "What are the temporal patterns of predator-prey relationships?"
+2026-03-28 10:23:33,456 Retrieved documents: 2 (below threshold of 3)
+2026-03-28 10:23:33,456 Average relevance: 0.42 (below threshold of 0.7)
+2026-03-28 10:23:33,456 Agent confidence: 0.34
+2026-03-28 10:23:33,456 Action: Triggering query reformulation
+2026-03-28 10:23:40,789 [INFO] Reformulation successful. New confidence: 0.76
+
+2026-03-28 11:15:22,890 [ERROR] EmbeddingError: CUDA out of memory
+2026-03-28 11:15:23,123 GPU Memory: 11.2GB / 12GB (93% utilization)
+2026-03-28 11:15:23,456 Batch size: 64 tokens
+2026-03-28 11:15:23,789 Action: Reducing batch size to 32 and retrying
+2026-03-28 11:15:45,234 [INFO] Embedding completed with reduced batch size
+2026-03-28 11:15:46,567 Total embeddings processed: 245, Time: 34.2 seconds
+
+2026-03-28 12:40:10,123 [ERROR] TimeoutError: LLM API request timeout
+2026-03-28 12:40:10,456 Model: llama-3.1-8b-instant
+2026-03-28 12:40:10,789 Request timeout: 30 seconds
+2026-03-28 12:40:11,012 Retrying with fallback model: mistral-7b-instant
+2026-03-28 12:40:15,345 [INFO] Fallback model succeeded
+2026-03-28 12:40:16,678 Response time: 5.2 seconds, Confidence: 0.72
+
+2026-03-28 13:55:44,567 [WARNING] Database Connection Pool Exhausted
+2026-03-28 13:55:44,890 Available connections: 0 / 20
+2026-03-28 13:55:45,123 Queue depth: 5 pending requests
+2026-03-28 13:55:45,456 Increasing pool size to 30
+2026-03-28 13:55:46,789 [INFO] Pool size increased successfully
+2026-03-28 13:55:47,012 Pending requests now processing
+
+2026-03-28 14:30:22,345 [WARNING] Entity Disambiguation Issue
+2026-03-28 14:30:22,678 Entity: "Python"
+2026-03-28 14:30:22,890 Ambiguous matches: PROGRAMMING_LANGUAGE (0.85), ORGANISM_SNAKE (0.79), GEOGRAPHICAL_LOCATION (0.42)
+2026-03-28 14:30:23,123 Action: Using context from document to disambiguate
+2026-03-28 14:30:23,456 Context: "Python's biological role in the ecosystem"
+2026-03-28 14:30:23,789 Resolved to: ORGANISM_SNAKE (confidence: 0.94)
+
+2026-03-28 15:20:10,890 [ERROR] Relation Extraction Mismatch
+2026-03-28 15:20:11,123 Source entity: "Panthera leo" (ORGANISM)
+2026-03-28 15:20:11,456 Target entity: "0.75" (UNKNOWN_TYPE)
+2026-03-28 15:20:11,789 Relation type: "has_confidence_score"
+2026-03-28 15:20:12,012 Issue: Target is not a valid entity type
+2026-03-28 15:20:12,345 Action: Skipping invalid relation
+2026-03-28 15:20:12,678 Logged for manual review
+
+2026-03-28 16:45:33,234 [INFO] Memory Leak Detected
+2026-03-28 16:45:33,567 Process: embedding_service
+2026-03-28 16:45:33,890 Memory growth: 2.3GB in last 2 hours
+2026-03-28 16:45:34,123 Average rate: 1.15MB/minute
+2026-03-28 16:45:34,456 Action: Restarting embedding service
+2026-03-28 16:45:45,789 [INFO] Service restarted successfully. Memory reset to 456MB
+
+2026-03-28 17:30:22,567 [WARNING] Outdated Knowledge Graph
+2026-03-28 17:30:22,890 Last update: 2026-03-15 (13 days ago)
+2026-03-28 17:30:23,123 Recommendation: Run incremental update to add new papers from this month
+2026-03-28 17:30:23,456 Estimated update time: 45 minutes
+
+2026-03-28 18:15:10,789 [ERROR] Ontology Mapping Conflict
+2026-03-28 18:15:11,123 Entity: "Biodiversity Index"
+2026-03-28 18:15:11,456 Conflicting mappings: MEASUREMENT (0.81), ORGANISM_COLLECTION (0.76)
+2026-03-28 18:15:11,789 Action: Creating new ontology concept for unmapped entity
+2026-03-28 18:15:12,012 New concept: BIODIVERSITY_METRICS
+2026-03-28 18:15:12,345 Status: Successfully added to ontology
